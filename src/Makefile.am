@@ -45,7 +45,6 @@ libzmq_la_SOURCES = \
     msg.hpp \
     mtrie.hpp \
     mutex.hpp \
-    nop_mechanism.hpp \
     null_mechanism.hpp \
     object.hpp \
     options.hpp \
@@ -113,7 +112,6 @@ libzmq_la_SOURCES = \
     mechanism.cpp \
     msg.cpp \
     mtrie.cpp \
-    nop_mechanism.cpp \
     null_mechanism.cpp \
     object.cpp \
     options.cpp \
