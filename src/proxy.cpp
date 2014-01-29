@@ -123,60 +123,85 @@ zmq::proxy (
         class socket_base_t **backend_,
         class socket_base_t *capture_,
         class socket_base_t *control_,
-        zmq::proxy_hook_t **hook_)
+        zmq::proxy_hook_t **hook_,
+        long time_out_)
 {
-    msg_t msg;
-    int rc = msg.init ();
-    if (rc != 0)
-        return -1;
-
-    //  The algorithm below assumes ratio of requests and replies processed
-    //  under full load to be 1:1.
-
-    int more;
-    size_t moresz;
-    size_t n = 0; // number of pair of sockets: the array ends with NULL
-    for (;; n++) { // counts the number of pair of sockets
-        if (!frontend_[n] && !backend_[n])
-            break;
-        if (!frontend_[n] || !backend_[n]) {
-            errno = EFAULT;
-            return -1;
-        }
-    }
-    if (!n) {
-        errno = EFAULT;
-        return -1;
-    }
-    // avoid dynamic allocation as we have no guarranty to reach the deallocator => limit the chain length
-    zmq_assert(n <= ZMQ_PROXY_CHAIN_MAX_LENGTH);
-    zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
+    // all threads statics
     static zmq_pollitem_t null_item = { NULL, 0, ZMQ_POLLIN, 0 };
     static zmq::proxy_hook_t dummy_hook = {NULL, NULL, NULL};
     static zmq::proxy_hook_t* no_hooks[ZMQ_PROXY_CHAIN_MAX_LENGTH];
-    if (!hook_)
-        hook_ = no_hooks;
-    else
-        for (size_t i = 0; i < n; i++)
-            if (!hook_[i]) // Check if a hook is used
-                hook_[i] = &dummy_hook;
-    for (size_t i = 0; i < n; i++) {
-        memcpy(&items[2 * i], &null_item, sizeof(null_item));
-        items[2 * i].socket =     frontend_[i];
-        memcpy(&items[2 * i + 1], &null_item, sizeof(null_item));
-        items[2 * i + 1].socket = backend_[i];
-        no_hooks[i] = &dummy_hook;
-    }
-    memcpy(&items[2 * n], &null_item, sizeof(null_item));
-    items[2 * n].socket =     control_;
-    int qt_poll_items = (control_ ? 2 * n + 1 : 2 * n);
 
-    //  Proxy can be in these three states
-    enum {
+    // local thread statics
+    static bool is_initialised = false;
+    static msg_t msg;
+    static int rc;
+    static int more;
+    static size_t moresz;
+    static size_t n; // number of pair of sockets: the array ends with NULL
+    static zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
+    static int qt_poll_items;
+    static enum {
         active,
         paused,
         terminated
-    } state = active;
+    } state; //  Proxy can be in these three states
+
+    if (!is_initialised) {
+        rc = msg.init ();
+        if (rc != 0)
+            return -1;
+
+        //  The algorithm below assumes ratio of requests and replies processed
+        //  under full load to be 1:1.
+
+        // counts the number of pair of sockets
+        for (n = 0;; n++) {
+            if (!frontend_[n] && !backend_[n])
+                break;
+            if (!frontend_[n] || !backend_[n]) {
+                errno = EFAULT;
+                return -1;
+            }
+        }
+        if (!n) {
+            errno = EFAULT;
+            return -1;
+        }
+        // check that intermediate proxies have both frontend and backend sockets defined
+        for (size_t i = 1; i < n-1; i++) {
+            if (!frontend_[i] || !backend_[i]) {
+                errno = EFAULT;
+                return -1;
+            }
+        }
+        // check that at most one end point is open
+        if (!frontend_[0] && !backend_[n-1]) {
+            errno = EFAULT;
+            return -1;
+        }
+
+        // avoid dynamic allocation as we have no guarranty to reach the deallocator => limit the chain length
+        zmq_assert(n <= ZMQ_PROXY_CHAIN_MAX_LENGTH);
+        if (!hook_)
+            hook_ = no_hooks;
+        else
+            for (size_t i = 0; i < n; i++)
+                if (!hook_[i]) // Check if a hook is used
+                    hook_[i] = &dummy_hook;
+        for (size_t i = 0; i < n; i++) {
+            memcpy(&items[2 * i], &null_item, sizeof(null_item));
+            items[2 * i].socket =     frontend_[i];
+            memcpy(&items[2 * i + 1], &null_item, sizeof(null_item));
+            items[2 * i + 1].socket = backend_[i];
+            no_hooks[i] = &dummy_hook;
+        }
+        memcpy(&items[2 * n], &null_item, sizeof(null_item));
+        items[2 * n].socket =     control_;
+        qt_poll_items = (control_ ? 2 * n + 1 : 2 * n);
+
+        state = active;
+        is_initialised = true;
+    }
 
     while (state != terminated) {
         //  Wait while there are either requests or replies to process.
@@ -220,16 +245,24 @@ zmq::proxy (
             //  Process a request
             if (state == active
             &&  items [2 * i].revents & ZMQ_POLLIN) {
-                rc = forward(frontend_[i], backend_[i], capture_, msg, hook_[i]->front2back_hook, hook_[i]->data);
-                if (unlikely (rc < 0))
-                    return -1;
+                if (frontend_[i] && backend_[i]) {
+                    rc = forward(frontend_[i], backend_[i], capture_, msg, hook_[i]->front2back_hook, hook_[i]->data);
+                    if (unlikely (rc < 0))
+                        return -1;
+                }
+                else
+                    return 1;
             }
             //  Process a reply
             if (state == active
             &&  items [2 * i + 1].revents & ZMQ_POLLIN) {
-                rc = forward(backend_[i], frontend_[i], capture_, msg, hook_[i]->back2front_hook, hook_[i]->data);
-                if (unlikely (rc < 0))
-                    return -1;
+                if (frontend_[i] && backend_[i]) {
+                    rc = forward(backend_[i], frontend_[i], capture_, msg, hook_[i]->back2front_hook, hook_[i]->data);
+                    if (unlikely (rc < 0))
+                        return -1;
+                }
+                else
+                    return 1;
             }
         }
     }
