@@ -214,7 +214,7 @@ zmq::proxy (
 
     while (state != terminated) {
         //  Wait while there are either requests or replies to process.
-        rc = zmq_poll (&items [0], qt_poll_items, -1);
+        rc = zmq_poll (&items [0], qt_poll_items, time_out_);
         if (unlikely (rc < 0))
             return -1;
 
@@ -260,7 +260,7 @@ zmq::proxy (
                         return -1;
                 }
                 else
-                    return 1;
+                    return time_out_ != -1 ? 1 : 2 * i; // 1 is for backward compatibility
             }
             //  Process a reply
             if (state == active
@@ -271,9 +271,13 @@ zmq::proxy (
                         return -1;
                 }
                 else
-                    return 1;
+                    return time_out_ != -1 ? 1 : 2 * i + 1; // 1 is for backward compatibility
             }
         }
+
+        // proxy opening
+        if (time_out_ != -1)
+            break;
     }
     return 0;
 }

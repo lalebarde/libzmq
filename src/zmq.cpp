@@ -1067,6 +1067,18 @@ int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void *
         (zmq::proxy_hook_t**)  hooks_);
 }
 
+int zmq_proxy_open (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_)
+{
+    return zmq::proxy (
+        (zmq::socket_base_t**) frontends_,
+        (zmq::socket_base_t**) backends_,
+        (zmq::socket_base_t*) capture_,
+        (zmq::socket_base_t*) control_,
+        (zmq::proxy_hook_t**)  hooks_,
+        time_out_);
+}
+
+
 //  The deprecated device functionality
 
 int zmq_device (int /* type */, void *frontend_, void *backend_)
