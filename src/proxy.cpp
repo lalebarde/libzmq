@@ -145,11 +145,18 @@ zmq::proxy (
         paused,
         terminated
     } state; //  Proxy can be in these three states
+    static zmq::proxy_hook_t **hook;
 
-    if (!is_initialised) {
-        rc = msg.init ();
-        if (rc != 0)
-            return -1;
+    if (!frontend_ && !backend_ && !capture_ && !control_ && !hook_ && !time_out_) {
+        is_initialised = false; // hawful hack to force proxy reinitialisation
+        return 0;
+    }
+    if (!is_initialised || time_out_ == -1) { // if we wait on poll, then the proxy has no memory => we reinitialize everything
+        if (!msg.check()) {
+            rc = msg.init ();
+            if (rc != 0)
+                return -1;
+        }
 
         //  The algorithm below assumes ratio of requests and replies processed
         //  under full load to be 1:1.
@@ -174,20 +181,22 @@ zmq::proxy (
                 return -1;
             }
         }
-        // check that at most one end point is open
-        if (!frontend_[0] && !backend_[n-1]) {
-            errno = EFAULT;
-            return -1;
-        }
+//        // check that at most one end point is open
+//        if (!frontend_[0] && !backend_[n-1]) {
+//            errno = EFAULT;
+//            return -1;
+//        }
 
         // avoid dynamic allocation as we have no guarranty to reach the deallocator => limit the chain length
         zmq_assert(n <= ZMQ_PROXY_CHAIN_MAX_LENGTH);
         if (!hook_)
-            hook_ = no_hooks;
-        else
+            hook = no_hooks;
+        else {
+            hook = hook_;
             for (size_t i = 0; i < n; i++)
                 if (!hook_[i]) // Check if a hook is used
                     hook_[i] = &dummy_hook;
+        }
         for (size_t i = 0; i < n; i++) {
             memcpy(&items[2 * i], &null_item, sizeof(null_item));
             items[2 * i].socket =     frontend_[i];
@@ -246,7 +255,7 @@ zmq::proxy (
             if (state == active
             &&  items [2 * i].revents & ZMQ_POLLIN) {
                 if (frontend_[i] && backend_[i]) {
-                    rc = forward(frontend_[i], backend_[i], capture_, msg, hook_[i]->front2back_hook, hook_[i]->data);
+                    rc = forward(frontend_[i], backend_[i], capture_, msg, hook[i]->front2back_hook, hook[i]->data);
                     if (unlikely (rc < 0))
                         return -1;
                 }
@@ -257,7 +266,7 @@ zmq::proxy (
             if (state == active
             &&  items [2 * i + 1].revents & ZMQ_POLLIN) {
                 if (frontend_[i] && backend_[i]) {
-                    rc = forward(backend_[i], frontend_[i], capture_, msg, hook_[i]->back2front_hook, hook_[i]->data);
+                    rc = forward(backend_[i], frontend_[i], capture_, msg, hook[i]->back2front_hook, hook[i]->data);
                     if (unlikely (rc < 0))
                         return -1;
                 }
