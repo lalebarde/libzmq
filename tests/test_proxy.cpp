@@ -49,7 +49,7 @@ struct stats_t {
 } stats = {NULL, 0, 0};
 
 int
-upper_case(void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
+upper_case(void*, void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
 {
     size_t size = zmq_msg_size(msg_);
     if (!size || n_ == 1) return 0; // skip identity and 0 frames
@@ -63,7 +63,7 @@ upper_case(void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
 }
 
 int
-lower_case(void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
+lower_case(void*, void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
 {
     size_t size = zmq_msg_size(msg_);
     if (!size || n_ == 1) return 0; // skip identity and 0 frames

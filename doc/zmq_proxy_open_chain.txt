@@ -1,0 +1,195 @@
+zmq_proxy_open_chain(3)
+=======================
+
+NAME
+----
+zmq_proxy_open_chain - family functions start built-in 0MQ a proxy chain in the same thread
+control flow, including end-points
+
+
+SYNOPSIS
+--------
+*int zmq_proxy_open_chain_init (const void **proxy_open_chain_, 
+    const void **open_endpoints_, const void '**frontends_', const void '**backends_',
+    const void '*capture_', const void **hooks_, const void '*control_', long time_out_);*
+
+*int zmq_proxy_open_chain_set_socket_events_mask (const void *proxy_open_chain_,
+    const size_t socket_index, int state);*
+
+*int zmq_proxy_open_chain_poll (const void *proxy_open_chain_);*
+
+*int zmq_proxy_open_chain_close (const void **proxy_open_chain_);*
+
+
+DESCRIPTION
+-----------
+The _zmq_proxy_open_chain()_ family function starts the built-in 0MQ proxy in the current 
+application thread, as _zmq_proxy_chain()_ do. Please, refer to this function for 
+its general description and usage. The two following calls are exactly equivalent:
+
+----
+void*proxy_open_chain;
+zmq_proxy_open_chain_init (&proxy_open_chain, NULL, frontends, backends, capture, hooks_, control, -1);
+zmq_proxy_open_chain_poll (proxy_open_chain);
+zmq_proxy_open_chain_close (&proxy_open_chain);
+----
+
+----
+zmq_proxy_chain (frontends, backends, capture, hooks_, control);
+----
+
+We describe here only the additional proxy chaining capabilities.
+
+A zmq_proxy_open_chain shall be initialised with a call to _zmq_proxy_chain_init()_. The first 
+additional argument (compared to _zmq_proxy_chain()_, proxy_open_chain, is a void pointer to an 
+opaque structure necessary to manage internal states and belonging to the caller.
+The additional argument time_out_ (in ms) permits to externalize the polling loop. This time 
+out is actually applied to the zmq_poll used inside _zmq_proxy_open_chain_poll()_. So if you put 
+-1 here, the behaviour is the same than _zmq_proxy_chain()_. Otherwise, _zmq_proxy_open_chain_poll()_ 
+returns after each poll. This permits to incorporate applications end-points like the client socket 
+in the same poll than the proxies. So it is possible to have a full application in 
+main. The number of end-points can be any. _zmq_proxy_open_chain_poll()_ returns an index 
+of the socket that has received an event in the poll, so that the application can deal 
+with it.
+
+For convenience, the end-points can be put indifferently in open_endpoints_, frontends_ or 
+backends_ socket arrays. If put in frontends, NULL shall be put in its backends counterpart 
+and vice-versa.
+
+Say one need to implement the following architecture:
+
+*Process      client              proxy1                  proxy2              worker*
+               |             |-----------|             |----------|            |
+*socket*         cl           f1          b1            f2          b2           wk
+*endpoint*       |c----e1-----b|           |c----e2-----b|          |c----e3----b|
+
+Note: "c" is for connect, "b" for bind.
+
+With _zmq_proxy_open_chain_, the whole application can be performed fully in the main thread:
+----
+void** f = {client, f1, f2, NULL,   NULL);
+void** b = {NULL,   b1, b2, worker, NULL);
+void*proxy_open_chain;
+zmq_proxy_open_chain (&proxy_open_chain, NULL, f, b, NULL, NULL, NULL, 10);
+while (true) { // we need an external loop, since we have released the proxy internal one
+    index = zmq_proxy_open_chain_poll (proxy_open_chain);
+    if (index == 1) {
+        // we don't need to wait in the recv since we know we have an event
+        rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
+        // do useful things with the received message
+    }
+    else if (index == 6) {
+        // we don't need to wait in the recv since we know we have an event
+        rc = zmq_recv (worker, content, CONTENT_SIZE_MAX, 0);
+        // do useful things with the received message
+    }
+}
+zmq_proxy_open_chain_close (&proxy_open_chain);
+----
+or:
+----
+void** o = {client, worker,   NULL);
+void** f = {f1, f2, NULL);
+void** b = {b1, b2, NULL);
+void*proxy_open_chain;
+zmq_proxy_open_chain (&proxy_open_chain, o, f, b, NULL, NULL, NULL, 10);
+while (true) { // we need an external loop, since we have released the proxy internal one
+    index = zmq_proxy_open_chain(proxy_open_chain);
+    if (index == 1) {
+        // we don't need to wait in the recv since we know we have an event
+        rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
+        // do useful things with the received message
+    }
+    else if (index == 2) {
+        // we don't need to wait in the recv since we know we have an event
+        rc = zmq_recv (worker, content, CONTENT_SIZE_MAX, 0);
+        // do useful things with the received message
+    }
+}
+zmq_proxy_open_chain_close (&proxy_open_chain);
+----
+
+index is counted from 1 at open_endpoints_[0], 2 at open_endpoints_[1], etc, say n sockets, then 
+n+1 at frontends_[0], n+2 at backends_[0], n+3 at frontends_[1], n+4 at backends_[1], 
+etc. Every NULL socket is skipped in the count. In particular, if open_endpoints_ is NULL, the 
+index is counted from 1 at frontends_[0]. The maximum number of sockets is ZMQ_PROXY_CHAIN_MAX_LENGTH 
+defined as 10, which should be enough.
+
+The _zmq_proxy_open_chain_set_socket_events_mask()_ function enables to change the events mask 
+associated to a socket in the poll. Actually, this enables to sleep or awake a socket. 
+socket_index is the socket index as described above, state is the events mask value to apply, 
+0 to make the socket sleep, ZMQ_POLLIN to awake it. This function can be called any time after 
+_zmq_proxy_chain_init()_
+
+The _zmq_proxy_open_chain_close()_ destroys the opaque structure.
+
+Note: The opaque structure pointer belonging to the caller shall be passed as the 
+first argument of every zmq_proxy_open_chain family functions, by address for init and close, by 
+value otherwise.
+
+Note: Hooks cannot be attached to end-points. If you try to do it, they won't be called since 
+it is the responsability of the application to receive the messages of every end-point. As another 
+consequence, it is indifferent to put an end-point in the frontends or in the backends array.
+
+Note: Middle end-points are possible.
+
+Note: 'open_endpoints_' can be NULL. 'frontends_' and 'backends_' can be NULL too, but then they 
+have to be both NULL. At least one socket shall be not NULL.
+
+
+Refer to linkzmq:zmq_socket[3] for a description of the available socket types.
+Refer to linkzmq:zmq_proxy[3] for a description of the zmq_proxy.
+Refer to linkzmq:zmq_proxy_steerable[3] for a description of the zmq_steerable.
+Refer to linkzmq:zmq_proxy_hook[3] for a description of the zmq_hook.
+Refer to linkzmq:zmq_proxy_chain[3] for a description of the zmq_chain.
+
+EXAMPLE USAGE
+-------------
+_zmq_proxy_open_chain_ aims at building protocol layers by easing the chaining of some 
+proxies with end-points, typically by chaining:
+DEALER | ROUTER <---> STREAM <---> DEALER
+in the same thread. Any kind of protocol feature can be added via hooks.
+
+It makes testing and rapid prototyping easier than ever.
+
+cf also zmq_proxy, zmq_proxy_steerable, zmq_proxy_hook, zmq_proxy_chain.
+
+RETURN VALUE
+------------
+The _zmq_proxy_open_chain_init()_ function returns 0 if the initialisation was alright, -1 otherwise.
+
+The _zmq_proxy_open_chain_set_socket_events_mask()_ function returns 0 if the mask was successfully 
+updated, -1 otherwise.
+
+The _zmq_proxy_open_chain_poll()_ function behaves as zmq_proxy_steerable family functions, including 
+zmq_proxy_hook and zmq_proxy_chain, if -1 was passed to _zmq_proxy_open_chain_init()_'s time_out_ argument.
+Otherwise, it returns 0 if no event has occured, or the socket index as defined above if an event 
+has occured on a socket defined as an end-point.
+
+The _zmq_proxy_open_chain_close()_ function returns 0 if the initialisation was alright, and nullify the 
+pointer passed by address.
+ 
+
+
+EXAMPLE
+-------
+cf test_proxy_open_chain.cpp (10 threads with 2 proxies and 2 end-points each, with all possible 
+combinations of declaration of the end-points in the different socket arrays.
+An example capable of proxying CURVE will be added soon.
+
+SEE ALSO
+--------
+linkzmq:zmq_proxy[3]
+linkzmq:zmq_proxy_steerable[3]
+linkzmq:zmq_proxy_hook[3]
+linkzmq:zmq_proxy_chain[3]
+linkzmq:zmq_bind[3]
+linkzmq:zmq_connect[3]
+linkzmq:zmq_socket[3]
+linkzmq:zmq[7]
+
+
+AUTHORS
+-------
+This page was written by the 0MQ community. To make a change please
+read the 0MQ Contribution Policy at <http://www.zeromq.org/docs:contributing>.
