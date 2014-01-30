@@ -87,16 +87,19 @@ main (void)
     rc = zmq_connect (worker, "inproc://backend");
     assert (rc == 0);
 
-    void* frontends[] = {client, frontend,      intermediate2, NULL,   NULL}; // client is n° 1
-    void* backends[] =  {NULL,   intermediate1, backend,       worker, NULL}; // worker is n° 8
+    void* frontends[] = {client, frontend,      intermediate2, NULL,   NULL};
+    void* backends[] =  {NULL,   intermediate1, backend,       worker, NULL};
+    // first socket is n° 1. The order is frontends[0], backends[0], frontends[1], backends[1], etc. NULL sockets are not counted
+    int client_socket_pos = 1;
+    int worker_socket_pos = 6;
 
-    for (int request_nbr = 0; request_nbr < 3; request_nbr++) {
+    for (int request_nbr = 0; request_nbr <= 3;) {
         // Tick once per 200 ms, pulling in arriving messages
         int centitick;
         for (centitick = 0; centitick < 20; centitick++) {
             // Connect backend to frontend via a proxies
             int trigged_socket = zmq_proxy_open (frontends, backends, NULL, NULL, NULL, 10);
-            if (trigged_socket == 1) {
+            if (trigged_socket == client_socket_pos) {
                 int rcvmore;
                 size_t sz = sizeof (rcvmore);
                 rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
@@ -108,7 +111,7 @@ main (void)
                 assert (rc == 0);
                 assert (!rcvmore);
             }
-            if (trigged_socket == 8) {
+            if (trigged_socket == worker_socket_pos) {
                 // The DEALER socket gives us the reply envelope and message
                 rc = zmq_recv (worker, identity, ID_SIZE_MAX, 0); // ZMQ_DONTWAIT
                 if (rc == ID_SIZE) {
@@ -118,7 +121,7 @@ main (void)
                         printf ("server receive - identity = %s    content = %s\n", identity, content);
 
                     // Send 0..4 replies back
-                    int reply, replies = 1; //rand() % 5;
+                    int reply, replies = rand() % 5;
                     for (reply = 0; reply < replies; reply++) {
                         // Sleep for some fraction of a second
                         msleep (rand () % 10 + 1);
