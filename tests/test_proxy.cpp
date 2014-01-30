@@ -39,7 +39,7 @@
 #define ID_SIZE_MAX 32
 #define QT_WORKERS    5
 #define QT_CLIENTS    3
-#define is_verbose 1
+#define is_verbose 0
 
 // Our test Hook that uppercase the message from the frontend to the backend and vice versa
 struct stats_t {

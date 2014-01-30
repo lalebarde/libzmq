@@ -165,10 +165,12 @@ zmq::proxy (
         for (n = 0;; n++) {
             if (!frontend_[n] && !backend_[n])
                 break;
-            if (!frontend_[n] || !backend_[n]) {
-                errno = EFAULT;
-                return -1;
-            }
+            // strick criteria: each proxy has a frontend and a backend defined - do not concern zmq_proxy_open
+            if (time_out_ == -1)
+                if (!frontend_[n] || !backend_[n]) {
+                    errno = EFAULT;
+                    return -1;
+                }
         }
         if (!n) {
             errno = EFAULT;
@@ -260,7 +262,7 @@ zmq::proxy (
                         return -1;
                 }
                 else
-                    return time_out_ != -1 ? 1 : 2 * i; // 1 is for backward compatibility
+                    return time_out_ != -1 ? 1 : 2 * i + 1; // 1 is for backward compatibility, sockets are counted starting at 1
             }
             //  Process a reply
             if (state == active
@@ -271,7 +273,7 @@ zmq::proxy (
                         return -1;
                 }
                 else
-                    return time_out_ != -1 ? 1 : 2 * i + 1; // 1 is for backward compatibility
+                    return (time_out_ == -1 ? 1 : 2 * i + 2); // 1 is for backward compatibility, sockets are counted starting at 1
             }
         }
 
