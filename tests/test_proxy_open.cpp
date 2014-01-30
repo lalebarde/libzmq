@@ -38,53 +38,71 @@
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
 #define is_verbose 1
+#define QT_REQUESTS 3
+#define QT_THREADS 10
 
-int
-main (void)
+typedef struct config_t {
+    void *ctx;
+    int index;
+} config_t;
+
+int count[QT_THREADS];
+
+void
+do_some_stuff (void* config)
 {
-    setup_test_environment ();
-
-    void *ctx = zmq_ctx_new ();
-    assert (ctx);
+    config_t* c = (config_t*) config;
+    void* ctx = c->ctx;
+    int index = c->index;
+    free (c);
+    assert(index < 100);
 
     void *client = zmq_socket (ctx, ZMQ_DEALER);
     assert (client);
-    char content [CONTENT_SIZE_MAX];
     // Set random identity to make tracing easier
     char identity [ID_SIZE];
     sprintf (identity, "%04X-%04X", rand() % 0xFFFF, rand() % 0xFFFF);
     int rc = zmq_setsockopt (client, ZMQ_IDENTITY, identity, ID_SIZE); // includes '\0' as an helper for printf
     assert (rc == 0);
-    rc = zmq_connect (client, "tcp://127.0.0.1:9999");
+    char client_addr[CONTENT_SIZE_MAX];
+    sprintf(client_addr, "tcp://127.0.0.1:%04d\0", 9999 - index); // "tcp://127.0.0.1:9999"
+    rc = zmq_connect (client, client_addr);
     assert (rc == 0);
 
     // Frontend socket talks to clients over TCP
     void *frontend = zmq_socket (ctx, ZMQ_ROUTER);
     assert (frontend);
-    rc = zmq_bind (frontend, "tcp://127.0.0.1:9999");
+    rc = zmq_bind (frontend, client_addr);
     assert (rc == 0);
 
     // Intermediate 1
     void *intermediate1 = zmq_socket (ctx, ZMQ_DEALER);
     assert (intermediate1);
-    rc = zmq_connect (intermediate1, "inproc://intermediate");
+    char middle_addr[CONTENT_SIZE_MAX];
+    sprintf(middle_addr, "inproc://intermediate%02d\0", index); // "inproc://intermediate00"
+    rc = zmq_connect (intermediate1, middle_addr);
     assert (rc == 0);
 
     // Intermediate 2
     void *intermediate2 = zmq_socket (ctx, ZMQ_DEALER);
     assert (intermediate2);
-    rc = zmq_bind (intermediate2, "inproc://intermediate");
+    rc = zmq_bind (intermediate2, middle_addr);
     assert (rc == 0);
 
     // Backend socket talks to workers over inproc
     void *backend = zmq_socket (ctx, ZMQ_DEALER);
     assert (backend);
-    rc = zmq_bind (backend, "inproc://backend");
+    char backend_addr[CONTENT_SIZE_MAX];
+    sprintf(backend_addr, "inproc://backend%02d\0", index); // "inproc://backend00"
+    rc = zmq_bind (backend, backend_addr);
     assert (rc == 0);
 
     void *worker = zmq_socket (ctx, ZMQ_DEALER);
     assert (worker);
-    rc = zmq_connect (worker, "inproc://backend");
+//    int linger_time = 100;
+//    rc = zmq_setsockopt (worker, ZMQ_LINGER, &linger_time, sizeof(linger_time));
+//    assert (rc == 0);
+    rc = zmq_connect (worker, backend_addr);
     assert (rc == 0);
 
     void* frontends[] = {client, frontend,      intermediate2, NULL,   NULL};
@@ -93,52 +111,82 @@ main (void)
     int client_socket_pos = 1;
     int worker_socket_pos = 6;
 
-    for (int request_nbr = 0; request_nbr <= 3;) {
-        // Tick once per 200 ms, pulling in arriving messages
-        int centitick;
-        for (centitick = 0; centitick < 20; centitick++) {
-            // Connect backend to frontend via a proxies
-            int trigged_socket = zmq_proxy_open (frontends, backends, NULL, NULL, NULL, 10);
-            if (trigged_socket == client_socket_pos) {
-                int rcvmore;
-                size_t sz = sizeof (rcvmore);
-                rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
-                assert (rc == CONTENT_SIZE);
-                if (is_verbose) printf("client receive - identity = %s    content = %s\n", identity, content);
-                //  Check that message is still the same
-                assert (memcmp (content, "request #", 9) == 0);
-                rc = zmq_getsockopt (client, ZMQ_RCVMORE, &rcvmore, &sz);
-                assert (rc == 0);
-                assert (!rcvmore);
-            }
-            if (trigged_socket == worker_socket_pos) {
-                // The DEALER socket gives us the reply envelope and message
-                rc = zmq_recv (worker, identity, ID_SIZE_MAX, 0); // ZMQ_DONTWAIT
-                if (rc == ID_SIZE) {
-                    rc = zmq_recv (worker, content, CONTENT_SIZE_MAX, 0);
-                    assert (rc == CONTENT_SIZE);
-                    if (is_verbose)
-                        printf ("server receive - identity = %s    content = %s\n", identity, content);
+    char content [CONTENT_SIZE_MAX];
 
-                    // Send 0..4 replies back
-                    int reply, replies = rand() % 5;
-                    for (reply = 0; reply < replies; reply++) {
-                        // Sleep for some fraction of a second
-                        msleep (rand () % 10 + 1);
-                        //  Send message from server to client
-                        rc = zmq_send (worker, identity, ID_SIZE, ZMQ_SNDMORE);
-                        assert (rc == ID_SIZE);
-                        rc = zmq_send (worker, content, CONTENT_SIZE, 0);
+    if (is_verbose)
+        printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
+
+    for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open reinitialisation
+        for (int request_nbr = 0; request_nbr <= QT_REQUESTS;) { // we ear one more time than the number of request
+            // Tick once per 200 ms, pulling in arriving messages
+            int centitick;
+            for (centitick = 0; centitick < 20; centitick++) {
+                // Connect backend to frontend via a proxies
+                int trigged_socket = zmq_proxy_open (frontends, backends, NULL, NULL, NULL, 10);
+                if (trigged_socket == -1)
+                    break; // terminate the test cleanly: zmq_proxy_open cannot be used because LTS is missing, so it just return -1
+                if (trigged_socket == client_socket_pos) {
+                    int rcvmore;
+                    size_t sz = sizeof (rcvmore);
+                    rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
+                    assert (rc == CONTENT_SIZE);
+                    if (is_verbose) printf("client receive - identity = %s    content = %s\n", identity, content);
+                    //  Check that message is still the same
+                    assert (memcmp (content, "request #", 9) == 0);
+                    rc = zmq_getsockopt (client, ZMQ_RCVMORE, &rcvmore, &sz);
+                    assert (rc == 0);
+                    assert (!rcvmore);
+                    count[index]++;
+                }
+                if (trigged_socket == worker_socket_pos) {
+                    // The DEALER socket gives us the reply envelope and message
+                    rc = zmq_recv (worker, identity, ID_SIZE_MAX, 0); // ZMQ_DONTWAIT
+                    if (rc == ID_SIZE) {
+                        rc = zmq_recv (worker, content, CONTENT_SIZE_MAX, 0);
                         assert (rc == CONTENT_SIZE);
+                        if (is_verbose)
+                            printf ("server receive - identity = %s    content = %s\n", identity, content);
+
+                        // Send 0..4 replies back
+                        int reply, replies = request_nbr; // rand() % 5;
+                        for (reply = 0; reply < replies; reply++) {
+                            // Sleep for some fraction of a second
+                            msleep (rand () % 10 + 1);
+                            //  Send message from server to client
+                            rc = zmq_send (worker, identity, ID_SIZE, ZMQ_SNDMORE);
+                            assert (rc == ID_SIZE);
+                            rc = zmq_send (worker, content, CONTENT_SIZE, 0);
+                            assert (rc == CONTENT_SIZE);
+                        }
                     }
                 }
             }
+            sprintf(content, "request #%03d", ++request_nbr); // CONTENT_SIZE
+            if (request_nbr <= QT_REQUESTS) {
+                rc = zmq_send (client, content, CONTENT_SIZE, 0);
+                assert (rc == CONTENT_SIZE);
+            }
         }
-        sprintf(content, "request #%03d", ++request_nbr); // CONTENT_SIZE
-        rc = zmq_send (client, content, CONTENT_SIZE, 0);
-        assert (rc == CONTENT_SIZE);
+        if (round_ == 0) { // --------------------------------------------------------------------------- TODO
+            // change the topology
+//            frontends[1] = NULL;   frontends[2] = NULL;
+//            backends[1] =  worker; backends[2] =  NULL;
+//            worker_socket_pos = 2;
+//            msleep(100);  // still error
+//            rc = zmq_disconnect (worker, backend_addr); // fails !!!
+//            assert (rc == 0);
+//            rc = zmq_disconnect (frontend, client_addr);
+//            assert (rc == 0);
+    //            rc = zmq_close (worker);
+    //            printf("Error: zmq_disconnect failed: %s (%d)\n", zmq_strerror(errno), zmq_errno());
+    //            assert (rc == 0);
+    //            void *worker = zmq_socket (ctx, ZMQ_DEALER);
+    //            assert (worker);
+//            rc = zmq_bind (worker, client_addr);
+//            assert (rc == 0);
+            zmq_proxy_open (NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
+        }
     }
-
 
     rc = zmq_close (client);
     assert (rc == 0);
@@ -152,7 +200,36 @@ main (void)
     assert (rc == 0);
     rc = zmq_close (worker);
     assert (rc == 0);
-    rc = zmq_ctx_term (ctx);
+}
+
+int
+main (void)
+{
+#ifdef thread_local
+    setup_test_environment ();
+    void *ctx = zmq_ctx_new ();
+    assert (ctx);
+    assert(QT_THREADS > 0);
+    void *threads [QT_THREADS];
+    memset(count, 0, QT_THREADS);
+
+    for (int i = 0; i < QT_THREADS; i++) {
+        config_t *config = (config_t *) malloc(sizeof(config_t));
+        config->ctx = ctx;
+        config->index = i;
+        threads[i] = zmq_threadstart (&do_some_stuff, (void*) config);
+    }
+
+    for (int i = 0; i < QT_THREADS; i++)
+        zmq_threadclose (threads[i]);
+    int rc = zmq_ctx_term (ctx);
     assert (rc == 0);
+
+    assert(count[0]); // at least one message received
+    for (int i = 1; i < QT_THREADS; i++)
+        assert(count[0] == count[i]); // check that we have received the same number of messages on each thread - weak but enough condition
+    if (is_verbose)
+        printf ("All threads have received %d messages\n", count[0]);
+#endif
     return 0;
 }

@@ -117,6 +117,12 @@ forward(
     return 0;
 }
 
+#if defined(thread_local)
+#define STATIC4TLS_OR_NA static thread_local
+#else
+#define STATIC4TLS_OR_NA
+#endif
+
 int
 zmq::proxy (
         class socket_base_t **frontend_,
@@ -131,25 +137,25 @@ zmq::proxy (
     static zmq::proxy_hook_t dummy_hook = {NULL, NULL, NULL};
     static zmq::proxy_hook_t* no_hooks[ZMQ_PROXY_CHAIN_MAX_LENGTH];
 
-    // local thread statics
-    static bool is_initialised = false;
-    static msg_t msg;
-    static int rc;
-    static int more;
-    static size_t moresz;
-    static size_t n; // number of pair of sockets: the array ends with NULL
-    static zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
-    static int linked_to [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    static hook_f hook_func [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    static void* hook_data [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    static int qt_poll_items;
-    static int qt_proxy_sockets;
-    static enum {
+    // local thread statics or not static if LTS is not available (LTS is only required for zmq_proxy_open
+    STATIC4TLS_OR_NA bool is_initialised = false;
+    STATIC4TLS_OR_NA msg_t msg;
+    STATIC4TLS_OR_NA int rc;
+    STATIC4TLS_OR_NA int more;
+    STATIC4TLS_OR_NA size_t moresz;
+    STATIC4TLS_OR_NA size_t n; // number of pair of sockets: the array ends with NULL
+    STATIC4TLS_OR_NA zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
+    STATIC4TLS_OR_NA int linked_to [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    STATIC4TLS_OR_NA hook_f hook_func [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    STATIC4TLS_OR_NA void* hook_data [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    STATIC4TLS_OR_NA int qt_poll_items;
+    STATIC4TLS_OR_NA int qt_proxy_sockets;
+    STATIC4TLS_OR_NA enum {
         active,
         paused,
         terminated
     } state; //  Proxy can be in these three states
-    static zmq::proxy_hook_t **hook;
+    STATIC4TLS_OR_NA zmq::proxy_hook_t **hook;
 
     if (!frontend_ && !backend_ && !capture_ && !control_ && !hook_ && !time_out_) {
         is_initialised = false; // hawful hack to force proxy reinitialisation
@@ -166,32 +172,19 @@ zmq::proxy (
         //  under full load to be 1:1.
 
         // counts the number of pair of sockets
-        for (n = 0;; n++) {
+        for (n = 0;; n++)
             if (!frontend_[n] && !backend_[n])
                 break;
-            // strick criteria: each proxy has a frontend and a backend defined - do not concern zmq_proxy_open
-            if (time_out_ == -1)
-                if (!frontend_[n] || !backend_[n]) {
-                    errno = EFAULT;
-                    return -1;
-                }
-        }
         if (!n) {
             errno = EFAULT;
             return -1;
         }
-        // check that intermediate proxies have both frontend and backend sockets defined
-        for (size_t i = 1; i < n-1; i++) {
-            if (!frontend_[i] || !backend_[i]) {
+        // strick criteria for zmq_proxy, zmq_proxy_steerable, zmq_proxy_hook: one single proxy with frontend and backend defined
+        if (time_out_ == -1)
+            if (!frontend_[0] || !backend_[0]) {
                 errno = EFAULT;
                 return -1;
             }
-        }
-//        // check that at most one end point is open
-//        if (!frontend_[0] && !backend_[n-1]) {
-//            errno = EFAULT;
-//            return -1;
-//        }
 
         // avoid dynamic allocation as we have no guarranty to reach the deallocator => limit the chain length
         zmq_assert(n <= ZMQ_PROXY_CHAIN_MAX_LENGTH);
@@ -225,6 +218,7 @@ zmq::proxy (
                 linked_to[k] = k+1; // this socket is proxied to the next one
                 hook_func[k] = hook[i]->front2back_hook;
                 k++;
+                hook_data[k] = hook[i]->data;
                 memcpy(&items[k], &null_item, sizeof(null_item));
                 items[k].socket = backend_[i];
                 linked_to[k] = k-1; // this socket is proxied to the previous one
@@ -245,6 +239,8 @@ zmq::proxy (
         rc = zmq_poll (&items [0], qt_poll_items, time_out_);
         if (unlikely (rc < 0))
             return -1;
+        if (rc == 0) // no message. Obviously, we are in the case where: time_out_ != -1
+            return 0;
 
         //  Process a control command if any
         if (control_ && items [qt_poll_items - 1].revents & ZMQ_POLLIN) {
@@ -278,7 +274,7 @@ zmq::proxy (
         }
 
         // process each pair of sockets
-        for (size_t i = 0; i <= qt_proxy_sockets; i++) {
+        for (int i = 0; i < qt_proxy_sockets; i++) {
             if (state == active
             &&  items [i].revents & ZMQ_POLLIN) {
                 if (i != linked_to[i]) { // this socket is proxied to the linked_to[i] one
