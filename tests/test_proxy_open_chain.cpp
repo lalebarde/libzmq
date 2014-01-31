@@ -110,6 +110,15 @@ do_some_stuff (void* config)
     // first socket is n° 1. The order is frontends[0], backends[0], frontends[1], backends[1], etc. NULL sockets are not counted
     int client_socket_pos = 1;
     int worker_socket_pos = 6;
+    // checks that position of "open" sockets as frontend or backend is not meaningful
+    if (index % 4 == 1 || index % 4 == 3) {
+        frontends[0] = NULL;
+        backends[0] = client;
+    }
+    if (index % 4 == 2 || index % 4 == 3) {
+        frontends[3] = worker;
+        backends[3] = NULL;
+    }
 
     char content [CONTENT_SIZE_MAX];
 

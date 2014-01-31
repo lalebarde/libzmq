@@ -206,12 +206,12 @@ zmq::proxy (
             if (!frontend_[i]) {
                 items[k].socket = backend_[i];
                 linked_to[k] = k; // this socket is alone (open)
-                hook_func[k] = hook[i]->back2front_hook;
+                hook_func[k] = NULL; // hook[i]->back2front_hook; No hook will be executed on an "open" socket since we don't recv the messages
             }
             else if (!backend_[i]) {
                 items[k].socket = frontend_[i];
                 linked_to[k] = k; // this socket is alone (open)
-                hook_func[k] = hook[i]->front2back_hook;
+                hook_func[k] = NULL; // hook[i]->front2back_hook; No hook will be executed on an "open" socket since we don't recv the messages
             }
             else {
                 items[k].socket = frontend_[i];
