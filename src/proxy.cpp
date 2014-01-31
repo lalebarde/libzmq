@@ -137,7 +137,7 @@ zmq::proxy (
     static zmq::proxy_hook_t dummy_hook = {NULL, NULL, NULL};
     static zmq::proxy_hook_t* no_hooks[ZMQ_PROXY_CHAIN_MAX_LENGTH];
 
-    // local thread statics or not static if LTS is not available (LTS is only required for zmq_proxy_open
+    // local thread statics or not static if LTS is not available (LTS is only required for zmq_proxy_open_chain
     STATIC4TLS_OR_NA bool is_initialised = false;
     STATIC4TLS_OR_NA msg_t msg;
     STATIC4TLS_OR_NA int rc;

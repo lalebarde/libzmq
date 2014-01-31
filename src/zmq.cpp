@@ -1067,7 +1067,7 @@ int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void *
         (zmq::proxy_hook_t**)  hooks_);
 }
 
-int zmq_proxy_open (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_)
+int zmq_proxy_open_chain (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_)
 {
 #ifdef thread_local
     return zmq::proxy (

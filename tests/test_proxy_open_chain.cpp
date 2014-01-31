@@ -65,7 +65,7 @@ do_some_stuff (void* config)
     int rc = zmq_setsockopt (client, ZMQ_IDENTITY, identity, ID_SIZE); // includes '\0' as an helper for printf
     assert (rc == 0);
     char client_addr[CONTENT_SIZE_MAX];
-    sprintf(client_addr, "tcp://127.0.0.1:%04d\0", 9999 - index); // "tcp://127.0.0.1:9999"
+    sprintf(client_addr, "tcp://127.0.0.1:%04d", 9999 - index); // "tcp://127.0.0.1:9999"
     rc = zmq_connect (client, client_addr);
     assert (rc == 0);
 
@@ -79,7 +79,7 @@ do_some_stuff (void* config)
     void *intermediate1 = zmq_socket (ctx, ZMQ_DEALER);
     assert (intermediate1);
     char middle_addr[CONTENT_SIZE_MAX];
-    sprintf(middle_addr, "inproc://intermediate%02d\0", index); // "inproc://intermediate00"
+    sprintf(middle_addr, "inproc://intermediate%02d", index); // "inproc://intermediate00"
     rc = zmq_connect (intermediate1, middle_addr);
     assert (rc == 0);
 
@@ -93,7 +93,7 @@ do_some_stuff (void* config)
     void *backend = zmq_socket (ctx, ZMQ_DEALER);
     assert (backend);
     char backend_addr[CONTENT_SIZE_MAX];
-    sprintf(backend_addr, "inproc://backend%02d\0", index); // "inproc://backend00"
+    sprintf(backend_addr, "inproc://backend%02d", index); // "inproc://backend00"
     rc = zmq_bind (backend, backend_addr);
     assert (rc == 0);
 
@@ -116,15 +116,15 @@ do_some_stuff (void* config)
     if (is_verbose)
         printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
 
-    for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open reinitialisation
+    for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open_chain reinitialisation
         for (int request_nbr = 0; request_nbr <= QT_REQUESTS;) { // we ear one more time than the number of request
             // Tick once per 200 ms, pulling in arriving messages
             int centitick;
             for (centitick = 0; centitick < 20; centitick++) {
                 // Connect backend to frontend via a proxies
-                int trigged_socket = zmq_proxy_open (frontends, backends, NULL, NULL, NULL, 10);
+                int trigged_socket = zmq_proxy_open_chain (frontends, backends, NULL, NULL, NULL, 10);
                 if (trigged_socket == -1)
-                    break; // terminate the test cleanly: zmq_proxy_open cannot be used because LTS is missing, so it just return -1
+                    break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
                 if (trigged_socket == client_socket_pos) {
                     int rcvmore;
                     size_t sz = sizeof (rcvmore);
@@ -184,7 +184,7 @@ do_some_stuff (void* config)
     //            assert (worker);
 //            rc = zmq_bind (worker, client_addr);
 //            assert (rc == 0);
-            zmq_proxy_open (NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
+            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
         }
     }
 
