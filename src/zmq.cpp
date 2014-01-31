@@ -1078,7 +1078,7 @@ int zmq_proxy_open_chain (void **frontends_, void **backends_, void *capture_, v
         (zmq::proxy_hook_t**)  hooks_,
         time_out_);
 #else
-    return -1;
+    zmq_assert (false);
 #endif
 }
 
