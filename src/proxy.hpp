@@ -32,6 +32,7 @@ namespace zmq
     };
 
     int proxy (
+            class socket_base_t **open_endpoint_,
             class socket_base_t **frontend_,
             class socket_base_t **backend_,
             class socket_base_t *capture_ = NULL,

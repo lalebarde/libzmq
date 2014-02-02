@@ -37,9 +37,9 @@
 #define CONTENT_SIZE_MAX 32
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
-#define is_verbose 1
 #define QT_REQUESTS 3
 #define QT_THREADS 10
+#define is_verbose 0
 
 typedef struct config_t {
     void *ctx;
@@ -105,19 +105,40 @@ do_some_stuff (void* config)
     rc = zmq_connect (worker, backend_addr);
     assert (rc == 0);
 
-    void* frontends[] = {client, frontend,      intermediate2, NULL,   NULL};
-    void* backends[] =  {NULL,   intermediate1, backend,       worker, NULL};
-    // first socket is n° 1. The order is frontends[0], backends[0], frontends[1], backends[1], etc. NULL sockets are not counted
-    int client_socket_pos = 1;
-    int worker_socket_pos = 6;
-    // checks that position of "open" sockets as frontend or backend is not meaningful
-    if (index % 4 == 1 || index % 4 == 3) {
-        frontends[0] = NULL;
-        backends[0] = client;
-    }
-    if (index % 4 == 2 || index % 4 == 3) {
-        frontends[3] = worker;
-        backends[3] = NULL;
+    void* open_endpoints[] = {client, worker, NULL};
+    void* frontends[] = {frontend,      intermediate2, NULL, NULL, NULL}; // the two last NULL are not necessary, it's just to have an appropriate
+    void* backends[] =  {intermediate1, backend,       NULL, NULL, NULL}; // array size to show other possible configurations (cf below)
+    int client_socket_pos = 1; // first socket is n° 1. The order is open_endpoints[0], open_endpoints[1], ..., open_endpoints[n],
+    int worker_socket_pos = 2; // frontends[0], backends[0], frontends[1], backends[1], etc. NULL sockets are not counted
+
+    switch (index) { // this is just to demonstrate how to use open_endpoints, frontends, backends (results are the same)
+    case 1:  client_socket_pos = 2; worker_socket_pos = 1; // inverse client and worker order (this is just a poll order, just the return index is different)
+        open_endpoints[0] = worker;   open_endpoints[1] = client;     open_endpoints[2] = NULL;
+        frontends[0] = frontend;      frontends[1] = intermediate2;   frontends[2] = NULL;
+        backends[0] =  intermediate1; backends[1] =  backend;         backends[2] =  NULL;
+        break;
+    case 2: client_socket_pos = 1; worker_socket_pos = 6; // open_endpoints is not mandatory, we could just pass NULL to zmq_proxy_open_chain 1st argument
+        open_endpoints[0] = NULL;
+        frontends[0] = client;    frontends[1] = frontend;      frontends[2] = intermediate2;   frontends[3] = NULL;   frontends[4] = NULL;
+        backends[0] =  NULL;      backends[1] =  intermediate1; backends[2] =  backend;         backends[3] =  worker; backends[4] =  NULL;
+        break;
+    case 3: client_socket_pos = 1; worker_socket_pos = 6; // when an end-point is put in the frontends or backends arrays, it can be put indifferently in one or the other
+        open_endpoints[0] = NULL;
+        frontends[0] = NULL;      frontends[1] = frontend;      frontends[2] = intermediate2;   frontends[3] = NULL;   frontends[4] = NULL;
+        backends[0] =  client;    backends[1] =  intermediate1; backends[2] =  backend;         backends[3] =  worker; backends[4] =  NULL;
+        break;
+    case 4: client_socket_pos = 1; worker_socket_pos = 6; // when an end-point is put in the frontends or backends arrays, it can be put indifferently in one or the other
+        open_endpoints[0] = NULL;
+        frontends[0] = NULL;      frontends[1] = frontend;      frontends[2] = intermediate2;   frontends[3] = worker; frontends[4] = NULL;
+        backends[0] =  client;    backends[1] =  intermediate1; backends[2] =  backend;         backends[3] =  NULL;   backends[4] =  NULL;
+        break;
+    case 5: client_socket_pos = 1; worker_socket_pos = 6; // when an end-point is put in the frontends or backends arrays, it can be put indifferently in one or the other
+        open_endpoints[0] = NULL;
+        frontends[0] = client;    frontends[1] = frontend;      frontends[2] = intermediate2;   frontends[3] = worker; frontends[4] = NULL;
+        backends[0] =  NULL;      backends[1] =  intermediate1; backends[2] =  backend;         backends[3] =  NULL;   backends[4] =  NULL;
+        break;
+    default: // cf default initialisation at the declaration
+        break;
     }
 
     char content [CONTENT_SIZE_MAX];
@@ -131,7 +152,7 @@ do_some_stuff (void* config)
             int centitick;
             for (centitick = 0; centitick < 20; centitick++) {
                 // Connect backend to frontend via a proxies
-                int trigged_socket = zmq_proxy_open_chain (frontends, backends, NULL, NULL, NULL, 10);
+                int trigged_socket = zmq_proxy_open_chain (open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
                 if (trigged_socket == -1)
                     break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
                 if (trigged_socket == client_socket_pos) {
@@ -193,7 +214,7 @@ do_some_stuff (void* config)
     //            assert (worker);
 //            rc = zmq_bind (worker, client_addr);
 //            assert (rc == 0);
-            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
+            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
         }
     }
 
