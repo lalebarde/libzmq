@@ -1023,58 +1023,80 @@ typedef char check_proxy_hook_t_size
     [sizeof (zmq::proxy_hook_t) ==  sizeof (zmq_proxy_hook_t) ? 1 : -1];
 
 //  Compile time check whether proxy_open_chain_t fits into zmq_proxy_open_chain_t.
-//typedef char check_proxy_open_chain_t_size
-//    [sizeof (zmq::proxy_open_chain_t) ==  sizeof (zmq_proxy_open_chain_t) ? 1 : -1];
+typedef char check_proxy_open_chain_t_size
+    [sizeof (zmq::proxy_t) ==  sizeof (zmq_proxy_open_chain_t) ? 1 : -1];
 
 
 int zmq_proxy (void *frontend_, void *backend_, void *capture_)
 {
-    zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
-    zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL, NULL,
-        (zmq::socket_base_t**) frontends_,
-        (zmq::socket_base_t**) backends_,
+    zmq::socket_base_t* frontends[] = {(zmq::socket_base_t*) frontend_, NULL};
+    zmq::socket_base_t* backends[] = {(zmq::socket_base_t*) backend_, NULL};
+    zmq::proxy_t proxy(NULL,
+        (zmq::socket_base_t**) frontends,
+        (zmq::socket_base_t**) backends,
         (zmq::socket_base_t*) capture_);
+    if (errno == EFAULT)
+        return -1;
+    return proxy.poll();
 }
 
 int zmq_proxy_steerable (void *frontend_, void *backend_, void *capture_, void *control_)
 {
-    zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
-    zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL, NULL,
-        (zmq::socket_base_t**) frontends_,
-        (zmq::socket_base_t**) backends_,
+    zmq::socket_base_t* frontends[] = {(zmq::socket_base_t*) frontend_, NULL};
+    zmq::socket_base_t* backends[] = {(zmq::socket_base_t*) backend_, NULL};
+    zmq::proxy_t proxy (NULL,
+        (zmq::socket_base_t**) frontends,
+        (zmq::socket_base_t**) backends,
         (zmq::socket_base_t*) capture_,
         (zmq::socket_base_t*) control_);
+    if (errno == EFAULT)
+        return -1;
+    return proxy.poll();
 }
 
 int zmq_proxy_hook (void *frontend_, void *backend_, void *capture_, void *hook_, void *control_)
 {
-    zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
-    zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    zmq::proxy_hook_t* hooks_[] = {(zmq::proxy_hook_t*) hook_};
-    return zmq::proxy (NULL, NULL,
-        (zmq::socket_base_t**) frontends_,
-        (zmq::socket_base_t**) backends_,
+    zmq::socket_base_t* frontends[] = {(zmq::socket_base_t*) frontend_, NULL};
+    zmq::socket_base_t* backends[] = {(zmq::socket_base_t*) backend_, NULL};
+    zmq::proxy_hook_t* hooks[] = {(zmq::proxy_hook_t*) hook_};
+    zmq::proxy_t proxy (NULL,
+        (zmq::socket_base_t**) frontends,
+        (zmq::socket_base_t**) backends,
         (zmq::socket_base_t*) capture_,
         (zmq::socket_base_t*) control_,
-        (zmq::proxy_hook_t**)  hooks_);
+        (zmq::proxy_hook_t**)  hooks);
+    if (errno == EFAULT)
+        return -1;
+    return proxy.poll();
 }
 
 int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_)
 {
-    return zmq::proxy (NULL, NULL,
+    zmq::proxy_t proxy (NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
         (zmq::socket_base_t*) capture_,
         (zmq::socket_base_t*) control_,
         (zmq::proxy_hook_t**)  hooks_);
+    if (errno == EFAULT)
+        return -1;
+    return proxy.poll();
 }
 
-int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t *poc_data, void **open_endpoints_, void **frontends_, void **backends_,
-        void *capture_, void **hooks_, void *control_, long time_out_)
+int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t **proxy_open_chain_, void **open_endpoints_,
+        void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_)
 {
-    return 0; // TODO
+    *proxy_open_chain_ = (zmq_proxy_open_chain_t *) new zmq::proxy_t(
+            (zmq::socket_base_t**) open_endpoints_,
+            (zmq::socket_base_t**) frontends_,
+            (zmq::socket_base_t**) backends_,
+            (zmq::socket_base_t*) capture_,
+            (zmq::socket_base_t*) control_,
+            (zmq::proxy_hook_t**)  hooks_,
+            time_out_);
+    if (errno == EFAULT)
+        return -1;
+    return 0;
 }
 
 int zmq_proxy_open_chain_set_socket_recv_state (zmq_proxy_open_chain_t *poc_data, int socket_index, int state)
@@ -1082,28 +1104,18 @@ int zmq_proxy_open_chain_set_socket_recv_state (zmq_proxy_open_chain_t *poc_data
     return 0; // TODO
 }
 
-int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *poc_data)
+int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *proxy_open_chain_)
 {
-    return 0; // TODO
+    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
+    delete proxy_open_chain;
+    return 0;
 }
 
 
-int zmq_proxy_open_chain (zmq_proxy_open_chain_t *poc_data, void **open_endpoints_, void **frontends_, void **backends_,
-        void *capture_, void **hooks_, void *control_, long time_out_)
+int zmq_proxy_open_chain (zmq_proxy_open_chain_t *proxy_open_chain_)
 {
-//#ifdef thread_local
-    return zmq::proxy (
-        (zmq::proxy_open_chain_t*) poc_data,
-        (zmq::socket_base_t**) open_endpoints_,
-        (zmq::socket_base_t**) frontends_,
-        (zmq::socket_base_t**) backends_,
-        (zmq::socket_base_t*) capture_,
-        (zmq::socket_base_t*) control_,
-        (zmq::proxy_hook_t**)  hooks_,
-        time_out_);
-//#else
-//    zmq_assert (false);
-//#endif
+    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
+    return proxy_open_chain->poll();
 }
 
 //  The deprecated device functionality
@@ -1112,7 +1124,10 @@ int zmq_device (int /* type */, void *frontend_, void *backend_)
 {
     zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
     zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL, NULL,
+    zmq::proxy_t proxy (NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_);
+    if (errno == EFAULT)
+        return -1;
+    return proxy.poll();
 }

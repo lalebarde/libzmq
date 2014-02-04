@@ -38,7 +38,7 @@
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
-#define QT_THREADS 10
+#define QT_THREADS 1
 #define is_verbose 1
 
 typedef struct config_t {
@@ -142,6 +142,9 @@ do_some_stuff (void* config)
     }
 
     char content [CONTENT_SIZE_MAX];
+    zmq_proxy_open_chain_t *proxy_open_chain;
+    rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
+    assert (rc == 0);
 
     if (is_verbose)
         printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
@@ -152,7 +155,7 @@ do_some_stuff (void* config)
             int centitick;
             for (centitick = 0; centitick < 20; centitick++) {
                 // Connect backend to frontend via a proxies
-                int trigged_socket = zmq_proxy_open_chain (NULL, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
+                int trigged_socket = zmq_proxy_open_chain (proxy_open_chain);
                 if (trigged_socket == -1)
                     break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
                 if (trigged_socket == client_socket_pos) {
@@ -197,7 +200,7 @@ do_some_stuff (void* config)
                 assert (rc == CONTENT_SIZE);
             }
         }
-        if (round_ == 0) { // --------------------------------------------------------------------------- TODO
+//        if (round_ == 0) { // --------------------------------------------------------------------------- TODO
             // change the topology
 //            frontends[1] = NULL;   frontends[2] = NULL;
 //            backends[1] =  worker; backends[2] =  NULL;
@@ -214,10 +217,12 @@ do_some_stuff (void* config)
     //            assert (worker);
 //            rc = zmq_bind (worker, client_addr);
 //            assert (rc == 0);
-            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
-        }
+//            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
+//        }
     }
 
+    rc = zmq_proxy_open_chain_close (proxy_open_chain);
+    assert (rc == 0);
     rc = zmq_close (client);
     assert (rc == 0);
     rc = zmq_close (frontend);

@@ -21,9 +21,14 @@
 #define __ZMQ_PROXY_HPP_INCLUDED__
 
 #define ZMQ_PROXY_CHAIN_MAX_LENGTH 10
+#include "../include/zmq.h"
 
 namespace zmq
 {
+//    class socket_base_t;
+    class msg_t;
+//    class zmq_pollitem_t;
+
     typedef int (*hook_f)(void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
 
     struct proxy_hook_t
@@ -33,18 +38,68 @@ namespace zmq
         hook_f back2front_hook;
     };
 
-    struct proxy_open_chain_t;
+    typedef enum { //  Proxy can be in these three states
+        active,
+        paused,
+        terminated
+    } proxy_state_t;
 
-    int proxy (
-            proxy_open_chain_t *poc_data_,
-            class socket_base_t **open_endpoint_,
-            class socket_base_t **frontend_,
-            class socket_base_t **backend_,
-            class socket_base_t *capture_ = NULL,
-            class socket_base_t *control_ = NULL, // backward compatibility without this argument
-            proxy_hook_t **hook_ = NULL, // backward compatibility without this argument
-            long time_out_ = -1
-        );
+//    int proxy (
+//            proxy_open_chain_t *poc_data_,
+//            class socket_base_t **open_endpoint_,
+//            class socket_base_t **frontend_,
+//            class socket_base_t **backend_,
+//            class socket_base_t *capture_ = NULL,
+//            class socket_base_t *control_ = NULL, // backward compatibility without this argument
+//            proxy_hook_t **hook_ = NULL, // backward compatibility without this argument
+//            long time_out_ = -1
+//        );
+
+    class proxy_t {
+    public:
+        proxy_t (
+                class socket_base_t **open_endpoint_,
+                class socket_base_t **frontend_,
+                class socket_base_t **backend_,
+                class socket_base_t *capture_ = NULL,
+                class socket_base_t *control_ = NULL,
+                proxy_hook_t **hook_ = NULL,
+                long time_out_ = -1
+            );
+        ~proxy_t();
+        int poll();
+    private:
+        int capture_msg(zmq::msg_t& msg_, int more_);
+        int forward(
+                class zmq::socket_base_t *from_,
+                class zmq::socket_base_t *to_,
+                zmq::hook_f do_hook_,
+                void *data_);
+
+    private:
+        class socket_base_t **open_endpoint;
+        class socket_base_t **frontend; // not used ?
+        class socket_base_t **backend; // not used ?
+        class socket_base_t *capture;
+        class socket_base_t *control;
+        proxy_hook_t **hook;
+        long time_out;
+    private:
+        size_t moresz;
+        size_t qt_oep; // number of open_endpoint_ sockets - ends with NULL
+        size_t qt_pairs_fb; // number of pair of sockets: both arrays frontend_ & backend_ ends with NULL
+        size_t qt_sockets; // total number of sockets inside open_endpoint_, frontend_, and backend_
+//        zmq_pollitem_t* items;
+//        size_t* linked_to;
+//        zmq::hook_f* hook_func;
+//        void** hook_data;
+        zmq_pollitem_t items[ZMQ_PROXY_CHAIN_MAX_LENGTH];
+        size_t linked_to[ZMQ_PROXY_CHAIN_MAX_LENGTH];
+        zmq::hook_f hook_func[ZMQ_PROXY_CHAIN_MAX_LENGTH];
+        void* hook_data[ZMQ_PROXY_CHAIN_MAX_LENGTH];
+        int qt_poll_items;
+        proxy_state_t state;
+    };
 }
 
 #endif
