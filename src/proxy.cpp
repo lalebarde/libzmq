@@ -133,6 +133,12 @@ zmq::proxy_t::proxy_t (
     //printf("sizeof (zmq::proxy_t) = %du\n", sizeof (zmq::proxy_t));
     moresz = sizeof (int);
 
+    // some cases which are mis-uses and we don't want to deal with them
+    if ((frontend_ && !backend_) || (!frontend_ && backend_)) {
+        errno = EFAULT;
+        return;
+    }
+
     // counts the number of sockets in open_endpoint_
     qt_oep = 0;
     if (open_endpoint_)
@@ -142,19 +148,21 @@ zmq::proxy_t::proxy_t (
 
     // counts the number of pair of sockets in frontend/backend, and the total number of sockets
     qt_sockets = qt_oep;
-    for (qt_pairs_fb = 0;; qt_pairs_fb++) {
-        if (!frontend_[qt_pairs_fb] && !backend_[qt_pairs_fb])
-            break;
-        if (frontend_[qt_pairs_fb])
-            qt_sockets++;
-        if (backend_[qt_pairs_fb])
-            qt_sockets++;
-    }
+    qt_pairs_fb = 0;
+    if (frontend_ && backend_)
+        for (;; qt_pairs_fb++) {
+            if (!frontend_[qt_pairs_fb] && !backend_[qt_pairs_fb])
+                break;
+            if (frontend_[qt_pairs_fb])
+                qt_sockets++;
+            if (backend_[qt_pairs_fb])
+                qt_sockets++;
+        }
     qt_poll_items = (control_ ? qt_sockets + 1 : qt_sockets);
 
     // strick criteria for zmq_proxy, zmq_proxy_steerable, zmq_proxy_hook: one single proxy with frontend and backend defined
     if (time_out == -1)
-        if (!frontend_[0] || !backend_[0]) {
+        if (!frontend_ || !backend_ || !frontend_[0] || !backend_[0]) {
             errno = EFAULT;
             return;
         }
@@ -177,30 +185,31 @@ zmq::proxy_t::proxy_t (
             hook_func[k] = NULL; // No hook will be executed on an end-point socket since we don't recv the messages
             k++;
         }
-    for (size_t i = 0; i < qt_pairs_fb; i++, k++) {
-        memcpy(&items[k], &null_item, sizeof(null_item));
-        hook_data[k] = hook && hook[i] ? hook[i]->data : NULL;
-        if (!frontend[i]) {
-            items[k].socket = backend[i];
-            linked_to[k] = k; // this socket is alone (open)
-            hook_func[k] = NULL; // No hook will be executed on an "open" socket since we don't recv the messages
-        }
-        else if (!backend[i]) {
-            items[k].socket = frontend[i];
-            linked_to[k] = k; // this socket is alone (open)
-            hook_func[k] = NULL; // No hook will be executed on an "open" socket since we don't recv the messages
-        }
-        else {
-            items[k].socket = frontend[i];
-            linked_to[k] = k+1; // this socket is proxied to the next one
-            hook_func[k] = hook && hook[i] ? hook[i]->front2back_hook : NULL;
-            k++;
-            hook_data[k] = hook && hook[i] ? hook[i]->data : NULL;
+    if (frontend && backend)
+        for (size_t i = 0; i < qt_pairs_fb; i++, k++) {
             memcpy(&items[k], &null_item, sizeof(null_item));
-            items[k].socket = backend[i];
-            linked_to[k] = k-1; // this socket is proxied to the previous one
-            hook_func[k] = hook && hook[i] ? hook[i]->back2front_hook : NULL;
-        }
+            hook_data[k] = hook && hook[i] ? hook[i]->data : NULL;
+            if (!frontend[i]) {
+                items[k].socket = backend[i];
+                linked_to[k] = k; // this socket is alone (open)
+                hook_func[k] = NULL; // No hook will be executed on an "open" socket since we don't recv the messages
+            }
+            else if (!backend[i]) {
+                items[k].socket = frontend[i];
+                linked_to[k] = k; // this socket is alone (open)
+                hook_func[k] = NULL; // No hook will be executed on an "open" socket since we don't recv the messages
+            }
+            else {
+                items[k].socket = frontend[i];
+                linked_to[k] = k+1; // this socket is proxied to the next one
+                hook_func[k] = hook && hook[i] ? hook[i]->front2back_hook : NULL;
+                k++;
+                hook_data[k] = hook && hook[i] ? hook[i]->data : NULL;
+                memcpy(&items[k], &null_item, sizeof(null_item));
+                items[k].socket = backend[i];
+                linked_to[k] = k-1; // this socket is proxied to the previous one
+                hook_func[k] = hook && hook[i] ? hook[i]->back2front_hook : NULL;
+            }
     }
     if (!k) { // we require at least one socket
         errno = EFAULT;

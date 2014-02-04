@@ -1106,10 +1106,11 @@ int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_open_chain_t *proxy_o
     return rc;
 }
 
-int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *proxy_open_chain_)
+int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t **proxy_open_chain_)
 {
-    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
-    delete proxy_open_chain;
+    zmq::proxy_t** proxy_open_chain = (zmq::proxy_t**) proxy_open_chain_;
+    delete *proxy_open_chain;
+    *proxy_open_chain = NULL;
     return 0;
 }
 

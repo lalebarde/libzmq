@@ -72,8 +72,10 @@ do_some_stuff (void* config)
     // Frontend socket talks to clients over TCP
     void *frontend = zmq_socket (ctx, ZMQ_ROUTER);
     assert (frontend);
-    rc = zmq_bind (frontend, client_addr);
-    assert (rc == 0);
+    if (index != 6) {
+        rc = zmq_bind (frontend, client_addr);
+        assert (rc == 0);
+    }
 
     // Intermediate 1
     void *intermediate1 = zmq_socket (ctx, ZMQ_DEALER);
@@ -97,13 +99,23 @@ do_some_stuff (void* config)
     rc = zmq_bind (backend, backend_addr);
     assert (rc == 0);
 
-    void *worker = zmq_socket (ctx, ZMQ_DEALER);
-    assert (worker);
+    void *worker;
+    if (index == 6) {
+        worker = zmq_socket (ctx, ZMQ_ROUTER);
+        assert (worker);
+        rc = zmq_bind (worker, client_addr);
+    }
+    else {
+        worker = zmq_socket (ctx, ZMQ_DEALER);
+        assert (worker);
+        rc = zmq_connect (worker, backend_addr);
+    }
+    assert (rc == 0);
 //    int linger_time = 100;
 //    rc = zmq_setsockopt (worker, ZMQ_LINGER, &linger_time, sizeof(linger_time));
 //    assert (rc == 0);
-    rc = zmq_connect (worker, backend_addr);
-    assert (rc == 0);
+    //rc = zmq_connect (worker, backend_addr); // done later to play with the topology
+    //assert (rc == 0);
 
     void* open_endpoints[] = {client, worker, NULL};
     void* frontends[] = {frontend,      intermediate2, NULL, NULL, NULL}; // the two last NULL are not necessary, it's just to have an appropriate
@@ -143,9 +155,14 @@ do_some_stuff (void* config)
 
     char content [CONTENT_SIZE_MAX];
     zmq_proxy_open_chain_t *proxy_open_chain;
-    rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
+    if (index == 4 || index == 5)
+        rc = zmq_proxy_open_chain_init (&proxy_open_chain, NULL, frontends, backends, NULL, NULL, NULL, 10);
+    else if (index == 6)
+        rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
+    else
+        rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
     assert (rc == 0);
-    if (!index) {
+    if (!index) { // sleep thread n° 0
         rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, 0); // makes client sleep
         assert (rc == 0);
     }
@@ -154,10 +171,22 @@ do_some_stuff (void* config)
         printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
 
     for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open_chain reinitialisation
-        if (!index && round_) {
-            rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, ZMQ_POLLIN); // awake client polling
-            // check in verbose mode that in the first round, one of the 10 clients receives the answers at the end
-            assert (rc == 0);
+        if (round_ == 1) {
+            if (index == 0) { // awake thread n° 0
+                rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, ZMQ_POLLIN); // awake client polling
+                // check in verbose mode that in the first round, one of the 10 clients receives the answers at the end
+                assert (rc == 0);
+            }
+//            if (index == 1) { // change topology in thread n° 1, round n° 1
+//                rc = zmq_proxy_open_chain_close (&proxy_open_chain);
+//                assert (rc == 0);
+//                rc = zmq_disconnect (worker, backend_addr);
+//                assert (rc == 0);
+//                rc = zmq_connect (worker, client_addr);
+//                assert (rc == 0);
+//                rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
+//                assert (rc == 0);
+//            }
         }
         for (int request_nbr = 0; request_nbr <= QT_REQUESTS;) { // we ear one more time than the number of request
             // Tick once per 200 ms, pulling in arriving messages
@@ -168,6 +197,7 @@ do_some_stuff (void* config)
                 if (trigged_socket == -1)
                     break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
                 if (trigged_socket == client_socket_pos) {
+                    assert (index || round_); // test of zmq_proxy_open_chain_set_socket_events_mask: asserts if index = 0 and round = 0
                     int rcvmore;
                     size_t sz = sizeof (rcvmore);
                     rc = zmq_recv (client, content, CONTENT_SIZE_MAX, 0);
@@ -230,7 +260,7 @@ do_some_stuff (void* config)
 //        }
     }
 
-    rc = zmq_proxy_open_chain_close (proxy_open_chain);
+    rc = zmq_proxy_open_chain_close (&proxy_open_chain);
     assert (rc == 0);
     rc = zmq_close (client);
     assert (rc == 0);
