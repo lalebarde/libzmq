@@ -117,14 +117,38 @@ forward(
     return 0;
 }
 
-#if defined(thread_local)
-#define STATIC4TLS_OR_NA static thread_local
-#else
-#define STATIC4TLS_OR_NA
-#endif
+typedef enum { //  Proxy can be in these three states
+    active,
+    paused,
+    terminated
+} proxy_state_t;
+
+struct proxy_open_chain_t {
+    bool is_initialised = false;
+    zmq::msg_t msg;
+    int rc;
+    int more;
+    size_t moresz;
+    size_t qt_pairs_fb; // number of pair of sockets: both arrays frontend_ & backend_ ends with NULL
+    zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
+    int linked_to [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    zmq::hook_f hook_func [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    void* hook_data [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    int qt_poll_items;
+    int qt_sockets;
+    proxy_state_t state;
+    zmq::proxy_hook_t **hook;
+};
+
+//#if defined(thread_local)
+//#define STATIC4TLS_OR_NA static thread_local
+//#else
+//#define STATIC4TLS_OR_NA
+//#endif
 
 int
 zmq::proxy (
+        zmq::proxy_open_chain_t *poc_data_,
         class socket_base_t **open_endpoint_,
         class socket_base_t **frontend_,
         class socket_base_t **backend_,
@@ -139,24 +163,24 @@ zmq::proxy (
     static zmq::proxy_hook_t* no_hooks[ZMQ_PROXY_CHAIN_MAX_LENGTH];
 
     // local thread statics or not static if LTS is not available (LTS is only required for zmq_proxy_open_chain
-    STATIC4TLS_OR_NA bool is_initialised = false;
-    STATIC4TLS_OR_NA msg_t msg;
-    STATIC4TLS_OR_NA int rc;
-    STATIC4TLS_OR_NA int more;
-    STATIC4TLS_OR_NA size_t moresz;
-    STATIC4TLS_OR_NA size_t qt_pairs_fb; // number of pair of sockets: both arrays frontend_ & backend_ ends with NULL
-    STATIC4TLS_OR_NA zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
-    STATIC4TLS_OR_NA int linked_to [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    STATIC4TLS_OR_NA hook_f hook_func [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    STATIC4TLS_OR_NA void* hook_data [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
-    STATIC4TLS_OR_NA int qt_poll_items;
-    STATIC4TLS_OR_NA int qt_sockets;
-    STATIC4TLS_OR_NA enum {
+    bool is_initialised = false;
+    msg_t msg;
+    int rc;
+    int more;
+    size_t moresz;
+    size_t qt_pairs_fb; // number of pair of sockets: both arrays frontend_ & backend_ ends with NULL
+    zmq_pollitem_t items [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1]; // +1 for the control socket
+    int linked_to [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    hook_f hook_func [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    void* hook_data [2 * ZMQ_PROXY_CHAIN_MAX_LENGTH + 1];
+    int qt_poll_items;
+    int qt_sockets;
+    enum {
         active,
         paused,
         terminated
     } state; //  Proxy can be in these three states
-    STATIC4TLS_OR_NA zmq::proxy_hook_t **hook;
+    zmq::proxy_hook_t **hook;
 
     if (!open_endpoint_ && !frontend_ && !backend_ && !capture_ && !control_ && !hook_ && !time_out_) {
         is_initialised = false; // hawful hack to force proxy reinitialisation

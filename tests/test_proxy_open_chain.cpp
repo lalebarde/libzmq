@@ -39,7 +39,7 @@
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
 #define QT_THREADS 10
-#define is_verbose 0
+#define is_verbose 1
 
 typedef struct config_t {
     void *ctx;
@@ -152,7 +152,7 @@ do_some_stuff (void* config)
             int centitick;
             for (centitick = 0; centitick < 20; centitick++) {
                 // Connect backend to frontend via a proxies
-                int trigged_socket = zmq_proxy_open_chain (open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
+                int trigged_socket = zmq_proxy_open_chain (NULL, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
                 if (trigged_socket == -1)
                     break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
                 if (trigged_socket == client_socket_pos) {
@@ -214,7 +214,7 @@ do_some_stuff (void* config)
     //            assert (worker);
 //            rc = zmq_bind (worker, client_addr);
 //            assert (rc == 0);
-            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
+            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
         }
     }
 

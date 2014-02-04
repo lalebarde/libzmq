@@ -20,6 +20,8 @@
 #ifndef __ZMQ_PROXY_HPP_INCLUDED__
 #define __ZMQ_PROXY_HPP_INCLUDED__
 
+#define ZMQ_PROXY_CHAIN_MAX_LENGTH 10
+
 namespace zmq
 {
     typedef int (*hook_f)(void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
@@ -31,7 +33,10 @@ namespace zmq
         hook_f back2front_hook;
     };
 
+    struct proxy_open_chain_t;
+
     int proxy (
+            proxy_open_chain_t *poc_data_,
             class socket_base_t **open_endpoint_,
             class socket_base_t **frontend_,
             class socket_base_t **backend_,

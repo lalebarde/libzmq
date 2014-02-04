@@ -1022,12 +1022,16 @@ int zmq_poll (zmq_pollitem_t *items_, int nitems_, long timeout_)
 typedef char check_proxy_hook_t_size
     [sizeof (zmq::proxy_hook_t) ==  sizeof (zmq_proxy_hook_t) ? 1 : -1];
 
+//  Compile time check whether proxy_open_chain_t fits into zmq_proxy_open_chain_t.
+//typedef char check_proxy_open_chain_t_size
+//    [sizeof (zmq::proxy_open_chain_t) ==  sizeof (zmq_proxy_open_chain_t) ? 1 : -1];
+
 
 int zmq_proxy (void *frontend_, void *backend_, void *capture_)
 {
     zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
     zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL,
+    return zmq::proxy (NULL, NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
         (zmq::socket_base_t*) capture_);
@@ -1037,7 +1041,7 @@ int zmq_proxy_steerable (void *frontend_, void *backend_, void *capture_, void *
 {
     zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
     zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL,
+    return zmq::proxy (NULL, NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
         (zmq::socket_base_t*) capture_,
@@ -1049,7 +1053,7 @@ int zmq_proxy_hook (void *frontend_, void *backend_, void *capture_, void *hook_
     zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
     zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
     zmq::proxy_hook_t* hooks_[] = {(zmq::proxy_hook_t*) hook_};
-    return zmq::proxy (NULL,
+    return zmq::proxy (NULL, NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
         (zmq::socket_base_t*) capture_,
@@ -1059,7 +1063,7 @@ int zmq_proxy_hook (void *frontend_, void *backend_, void *capture_, void *hook_
 
 int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_)
 {
-    return zmq::proxy (NULL,
+    return zmq::proxy (NULL, NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
         (zmq::socket_base_t*) capture_,
@@ -1067,11 +1071,29 @@ int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void *
         (zmq::proxy_hook_t**)  hooks_);
 }
 
-int zmq_proxy_open_chain (void **open_endpoints_, void **frontends_, void **backends_,
+int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t *poc_data, void **open_endpoints_, void **frontends_, void **backends_,
         void *capture_, void **hooks_, void *control_, long time_out_)
 {
-#ifdef thread_local
+    return 0; // TODO
+}
+
+int zmq_proxy_open_chain_set_socket_recv_state (zmq_proxy_open_chain_t *poc_data, int socket_index, int state)
+{
+    return 0; // TODO
+}
+
+int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *poc_data)
+{
+    return 0; // TODO
+}
+
+
+int zmq_proxy_open_chain (zmq_proxy_open_chain_t *poc_data, void **open_endpoints_, void **frontends_, void **backends_,
+        void *capture_, void **hooks_, void *control_, long time_out_)
+{
+//#ifdef thread_local
     return zmq::proxy (
+        (zmq::proxy_open_chain_t*) poc_data,
         (zmq::socket_base_t**) open_endpoints_,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_,
@@ -1079,9 +1101,9 @@ int zmq_proxy_open_chain (void **open_endpoints_, void **frontends_, void **back
         (zmq::socket_base_t*) control_,
         (zmq::proxy_hook_t**)  hooks_,
         time_out_);
-#else
-    zmq_assert (false);
-#endif
+//#else
+//    zmq_assert (false);
+//#endif
 }
 
 //  The deprecated device functionality
@@ -1090,7 +1112,7 @@ int zmq_device (int /* type */, void *frontend_, void *backend_)
 {
     zmq::socket_base_t* frontends_[] = {(zmq::socket_base_t*) frontend_, NULL};
     zmq::socket_base_t* backends_[] = {(zmq::socket_base_t*) backend_, NULL};
-    return zmq::proxy (NULL,
+    return zmq::proxy (NULL, NULL,
         (zmq::socket_base_t**) frontends_,
         (zmq::socket_base_t**) backends_);
 }
