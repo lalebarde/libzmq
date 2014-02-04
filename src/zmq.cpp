@@ -1099,9 +1099,11 @@ int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t **proxy_open_chain_, void 
     return 0;
 }
 
-int zmq_proxy_open_chain_set_socket_recv_state (zmq_proxy_open_chain_t *poc_data, int socket_index, int state)
+int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_open_chain_t *proxy_open_chain_, size_t socket_index, int state)
 {
-    return 0; // TODO
+    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
+    int rc = proxy_open_chain->set_socket_events_mask(socket_index, state);
+    return rc;
 }
 
 int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *proxy_open_chain_)

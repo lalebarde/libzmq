@@ -425,7 +425,7 @@ ZMQ_EXPORT int zmq_proxy_chain (void **frontends_, void **backends_, void *captu
 typedef struct zmq_proxy_open_chain_t {unsigned char _ [496];} zmq_proxy_open_chain_t; // 128 with dynamic allocation
 ZMQ_EXPORT int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t **proxy_open_chain_, void **open_endpoints_,
         void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_);
-ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_recv_state (zmq_proxy_open_chain_t *poc_data, int socket_index, int state);
+ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_open_chain_t *proxy_open_chain_, size_t socket_index, int state);
 ZMQ_EXPORT int zmq_proxy_open_chain (zmq_proxy_open_chain_t *proxy_open_chain_);
 ZMQ_EXPORT int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t *proxy_open_chain_);
 

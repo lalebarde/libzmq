@@ -38,7 +38,7 @@
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
-#define QT_THREADS 1
+#define QT_THREADS 10
 #define is_verbose 1
 
 typedef struct config_t {
@@ -145,11 +145,20 @@ do_some_stuff (void* config)
     zmq_proxy_open_chain_t *proxy_open_chain;
     rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
     assert (rc == 0);
+    if (!index) {
+        rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, 0); // makes client sleep
+        assert (rc == 0);
+    }
 
     if (is_verbose)
         printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
 
     for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open_chain reinitialisation
+        if (!index && round_) {
+            rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, ZMQ_POLLIN); // awake client polling
+            // check in verbose mode that in the first round, one of the 10 clients receives the answers at the end
+            assert (rc == 0);
+        }
         for (int request_nbr = 0; request_nbr <= QT_REQUESTS;) { // we ear one more time than the number of request
             // Tick once per 200 ms, pulling in arriving messages
             int centitick;

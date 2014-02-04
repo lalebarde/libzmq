@@ -37,8 +37,8 @@
 #define CONTENT_SIZE_MAX 32
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
-#define QT_WORKERS    1 // 5
-#define QT_CLIENTS    1 // 3
+#define QT_WORKERS    5
+#define QT_CLIENTS    3
 #define is_verbose 1
 
 // Our test Hook that uppercase the message from the frontend to the backend and vice versa

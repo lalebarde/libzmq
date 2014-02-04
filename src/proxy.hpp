@@ -68,6 +68,7 @@ namespace zmq
             );
         ~proxy_t();
         int poll();
+        int set_socket_events_mask (size_t socket_index, int state);
     private:
         int capture_msg(zmq::msg_t& msg_, int more_);
         int forward(

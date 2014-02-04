@@ -296,3 +296,15 @@ zmq::proxy_t::poll()
     }
     return 0;
 }
+
+int
+zmq::proxy_t::set_socket_events_mask (size_t socket_index, int state)
+{
+    if (items && socket_index <= qt_sockets && socket_index > 0) { // socket_index starts at 1
+        items[--socket_index].events = state; // trim to 0 before apply
+        return 0;
+    }
+    else
+        return -1;
+}
+
