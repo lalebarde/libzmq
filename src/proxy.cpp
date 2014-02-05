@@ -75,6 +75,7 @@ zmq::proxy_t::capture_msg(zmq::msg_t& msg_, int more_)
 
 int
 zmq::proxy_t::forward(
+//        class proxy_t *self_,
         class zmq::socket_base_t *from_,
         class zmq::socket_base_t *to_,
         zmq::hook_f do_hook_,
@@ -101,7 +102,7 @@ zmq::proxy_t::forward(
 
         // Hook
         if (do_hook_) {
-            rc = (*do_hook_)(from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
+            rc = (*do_hook_)((void*) this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
             if (unlikely (rc < 0))
                 return -1;
         }

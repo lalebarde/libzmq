@@ -29,7 +29,7 @@ namespace zmq
     class msg_t;
 //    class zmq_pollitem_t;
 
-    typedef int (*hook_f)(void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
+    typedef int (*hook_f)(void *proxy_open_chain_, void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
 
     struct proxy_hook_t
     {
@@ -61,6 +61,7 @@ namespace zmq
     private:
         int capture_msg(zmq::msg_t& msg_, int more_);
         int forward(
+//                class proxy_t *self_,
                 class zmq::socket_base_t *from_,
                 class zmq::socket_base_t *to_,
                 zmq::hook_f do_hook_,

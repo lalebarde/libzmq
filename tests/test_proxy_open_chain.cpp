@@ -32,7 +32,7 @@
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
 #define QT_THREADS 10
-#define is_verbose 1
+#define is_verbose 0
 
 typedef struct config_t {
     void *ctx;

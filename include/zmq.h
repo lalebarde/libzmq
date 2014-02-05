@@ -409,7 +409,7 @@ ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (void *proxy_open_cha
 ZMQ_EXPORT int zmq_proxy_open_chain_poll (void *proxy_open_chain_);
 ZMQ_EXPORT int zmq_proxy_open_chain_close (void **proxy_open_chain_);
 
-typedef int (*zmq_hook_f)(void *frontend, void *backend, void *capture, zmq_msg_t* msg_, size_t n_, void *data_);
+typedef int (*zmq_hook_f)(void *proxy_open_chain_, void *frontend, void *backend, void *capture, zmq_msg_t* msg_, size_t n_, void *data_);
 typedef struct zmq_proxy_hook_t {
     void *data;
     zmq_hook_f front2back_hook;

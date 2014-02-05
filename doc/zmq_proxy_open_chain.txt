@@ -3,7 +3,7 @@ zmq_proxy_open_chain(3)
 
 NAME
 ----
-zmq_proxy_open_chain family functions - start built-in 0MQ a proxy chain in the same thread
+zmq_proxy_open_chain - family functions start built-in 0MQ a proxy chain in the same thread
 control flow, including end-points
 
 
