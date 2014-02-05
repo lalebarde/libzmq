@@ -32,7 +32,7 @@
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
 #define QT_THREADS 10
-#define is_verbose 0
+#define is_verbose 1
 
 typedef struct config_t {
     void *ctx;
@@ -145,7 +145,7 @@ do_some_stuff (void* config)
     }
 
     char content [CONTENT_SIZE_MAX];
-    zmq_proxy_open_chain_t *proxy_open_chain;
+    void *proxy_open_chain;
     if (index == 4 || index == 5)
         rc = zmq_proxy_open_chain_init (&proxy_open_chain, NULL, frontends, backends, NULL, NULL, NULL, 10);
     else if (index == 6)

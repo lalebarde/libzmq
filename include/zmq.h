@@ -403,12 +403,11 @@ ZMQ_EXPORT int zmq_proxy_steerable (void *frontend, void *backend, void *capture
 ZMQ_EXPORT int zmq_proxy_hook (void *frontend, void *backend, void *capture, void *hook, void *control);
 ZMQ_EXPORT int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_);
 
-typedef struct zmq_proxy_open_chain_t {unsigned char _ [496];} zmq_proxy_open_chain_t; // 128 with dynamic allocation
-ZMQ_EXPORT int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t **proxy_open_chain_, void **open_endpoints_,
+ZMQ_EXPORT int zmq_proxy_open_chain_init (void **proxy_open_chain_, void **open_endpoints_,
         void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_);
-ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_open_chain_t *proxy_open_chain_, size_t socket_index, int state);
-ZMQ_EXPORT int zmq_proxy_open_chain_poll (zmq_proxy_open_chain_t *proxy_open_chain_);
-ZMQ_EXPORT int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t **proxy_open_chain_);
+ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (void *proxy_open_chain_, size_t socket_index, int state);
+ZMQ_EXPORT int zmq_proxy_open_chain_poll (void *proxy_open_chain_);
+ZMQ_EXPORT int zmq_proxy_open_chain_close (void **proxy_open_chain_);
 
 typedef int (*zmq_hook_f)(void *frontend, void *backend, void *capture, zmq_msg_t* msg_, size_t n_, void *data_);
 typedef struct zmq_proxy_hook_t {
