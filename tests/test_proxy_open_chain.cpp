@@ -22,16 +22,9 @@
 
 // Asynchronous client-to-server (DEALER to ROUTER) - pure libzmq
 //
-// While this example runs in a single process, that is to make
-// it easier to start and stop the example. Each task may have its own
-// context and conceptually acts as a separate process. To have this
-// behaviour, it is necessary to replace the inproc transport of the
-// control socket by a tcp transport.
-
-// This is our client task
-// It connects to the server, and then sends a request once per second
-// It collects responses as they arrive, and it prints them out. We will
-// run several client tasks in parallel, each with a different random ID.
+// This example demonstrates the capabilities of the zmq_proxy_open_chain family functions
+// 10 threads are run with different configurations, but the whole client/proxy/worker topology
+// is runned in a single application thread.
 
 #define CONTENT_SIZE 13
 #define CONTENT_SIZE_MAX 32
@@ -39,7 +32,7 @@
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
 #define QT_THREADS 10
-#define is_verbose 1
+#define is_verbose 0
 
 typedef struct config_t {
     void *ctx;
@@ -103,6 +96,9 @@ do_some_stuff (void* config)
     if (index == 6) {
         worker = zmq_socket (ctx, ZMQ_ROUTER);
         assert (worker);
+//        int linger_time = 100;
+//        rc = zmq_setsockopt (worker, ZMQ_LINGER, &linger_time, sizeof(linger_time));
+//        assert (rc == 0);
         rc = zmq_bind (worker, client_addr);
     }
     else {
@@ -111,11 +107,6 @@ do_some_stuff (void* config)
         rc = zmq_connect (worker, backend_addr);
     }
     assert (rc == 0);
-//    int linger_time = 100;
-//    rc = zmq_setsockopt (worker, ZMQ_LINGER, &linger_time, sizeof(linger_time));
-//    assert (rc == 0);
-    //rc = zmq_connect (worker, backend_addr); // done later to play with the topology
-    //assert (rc == 0);
 
     void* open_endpoints[] = {client, worker, NULL};
     void* frontends[] = {frontend,      intermediate2, NULL, NULL, NULL}; // the two last NULL are not necessary, it's just to have an appropriate
@@ -170,7 +161,7 @@ do_some_stuff (void* config)
     if (is_verbose)
         printf ("Thread %2d ready with addresses: \n%s, %s, %s\n", index, client_addr, middle_addr, backend_addr);
 
-    for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open_chain reinitialisation
+    for (int round_ = 0; round_ < 2; round_++) { // test zmq_proxy_open_chain_poll reinitialisation
         if (round_ == 1) {
             if (index == 0) { // awake thread n° 0
                 rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, ZMQ_POLLIN); // awake client polling
@@ -193,9 +184,9 @@ do_some_stuff (void* config)
             int centitick;
             for (centitick = 0; centitick < 20; centitick++) {
                 // Connect backend to frontend via a proxies
-                int trigged_socket = zmq_proxy_open_chain (proxy_open_chain);
+                int trigged_socket = zmq_proxy_open_chain_poll (proxy_open_chain);
                 if (trigged_socket == -1)
-                    break; // terminate the test cleanly: zmq_proxy_open_chain cannot be used because LTS is missing, so it just return -1
+                    break; // terminate the test cleanly
                 if (trigged_socket == client_socket_pos) {
                     assert (index || round_); // test of zmq_proxy_open_chain_set_socket_events_mask: asserts if index = 0 and round = 0
                     int rcvmore;
@@ -239,25 +230,6 @@ do_some_stuff (void* config)
                 assert (rc == CONTENT_SIZE);
             }
         }
-//        if (round_ == 0) { // --------------------------------------------------------------------------- TODO
-            // change the topology
-//            frontends[1] = NULL;   frontends[2] = NULL;
-//            backends[1] =  worker; backends[2] =  NULL;
-//            worker_socket_pos = 2;
-//            msleep(100);  // still error
-//            rc = zmq_disconnect (worker, backend_addr); // fails !!!
-//            assert (rc == 0);
-//            rc = zmq_disconnect (frontend, client_addr);
-//            assert (rc == 0);
-    //            rc = zmq_close (worker);
-    //            printf("Error: zmq_disconnect failed: %s (%d)\n", zmq_strerror(errno), zmq_errno());
-    //            assert (rc == 0);
-    //            void *worker = zmq_socket (ctx, ZMQ_DEALER);
-    //            assert (worker);
-//            rc = zmq_bind (worker, client_addr);
-//            assert (rc == 0);
-//            zmq_proxy_open_chain (NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0); // reinitialise the LTS variables
-//        }
     }
 
     rc = zmq_proxy_open_chain_close (&proxy_open_chain);
@@ -279,7 +251,6 @@ do_some_stuff (void* config)
 int
 main (void)
 {
-#ifdef thread_local
     setup_test_environment ();
     void *ctx = zmq_ctx_new ();
     assert (ctx);
@@ -304,6 +275,5 @@ main (void)
         assert(count[0] == count[i]); // check that we have received the same number of messages on each thread - weak but enough condition
     if (is_verbose)
         printf ("All threads have received %d messages\n", count[0]);
-#endif
     return 0;
 }

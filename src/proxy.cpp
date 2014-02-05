@@ -126,11 +126,7 @@ zmq::proxy_t::proxy_t (
             open_endpoint(open_endpoint_), frontend(frontend_), backend(backend_),
             capture(capture_), control(control_), hook(hook_), time_out(time_out_)
 {
-//    if (!open_endpoint_ && !frontend && !backend && !capture_ && !control_ && !hook_ && !time_out) {
-//        is_initialised = false; // hawful hack to force proxy reinitialisation
-//        return 0;
-//    }
-    //printf("sizeof (zmq::proxy_t) = %du\n", sizeof (zmq::proxy_t));
+    //printf("sizeof (zmq::proxy_t) = %du\n", sizeof (zmq::proxy_t)); // usefull for devs
     moresz = sizeof (int);
 
     // some cases which are mis-uses and we don't want to deal with them
@@ -229,7 +225,6 @@ zmq::proxy_t::~proxy_t ()
 //    delete[] hook_func; // free (hook_func);
 //    delete[] linked_to; // free (linked_to);
 //    delete[] items; // free (items);
-
 }
 
 int

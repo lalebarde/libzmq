@@ -21,7 +21,7 @@
 #define __ZMQ_PROXY_HPP_INCLUDED__
 
 #define ZMQ_PROXY_CHAIN_MAX_LENGTH 10
-#include "../include/zmq.h"
+#include "../include/zmq.h" // TODO: to be suppressed if possible
 
 namespace zmq
 {
@@ -43,17 +43,6 @@ namespace zmq
         paused,
         terminated
     } proxy_state_t;
-
-//    int proxy (
-//            proxy_open_chain_t *poc_data_,
-//            class socket_base_t **open_endpoint_,
-//            class socket_base_t **frontend_,
-//            class socket_base_t **backend_,
-//            class socket_base_t *capture_ = NULL,
-//            class socket_base_t *control_ = NULL, // backward compatibility without this argument
-//            proxy_hook_t **hook_ = NULL, // backward compatibility without this argument
-//            long time_out_ = -1
-//        );
 
     class proxy_t {
     public:
@@ -98,7 +87,7 @@ namespace zmq
         size_t linked_to[ZMQ_PROXY_CHAIN_MAX_LENGTH];
         zmq::hook_f hook_func[ZMQ_PROXY_CHAIN_MAX_LENGTH];
         void* hook_data[ZMQ_PROXY_CHAIN_MAX_LENGTH];
-        int qt_poll_items;
+        int qt_poll_items; // total number of sockets which shall be polled, including control_ if not NULL
         proxy_state_t state;
     };
 }

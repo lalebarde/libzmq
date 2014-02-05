@@ -1101,6 +1101,8 @@ int zmq_proxy_open_chain_init (zmq_proxy_open_chain_t **proxy_open_chain_, void 
 
 int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_open_chain_t *proxy_open_chain_, size_t socket_index, int state)
 {
+    if (!proxy_open_chain_)
+        return -1;
     zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
     int rc = proxy_open_chain->set_socket_events_mask(socket_index, state);
     return rc;
@@ -1114,8 +1116,7 @@ int zmq_proxy_open_chain_close (zmq_proxy_open_chain_t **proxy_open_chain_)
     return 0;
 }
 
-
-int zmq_proxy_open_chain (zmq_proxy_open_chain_t *proxy_open_chain_)
+int zmq_proxy_open_chain_poll (zmq_proxy_open_chain_t *proxy_open_chain_)
 {
     zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
     return proxy_open_chain->poll();
