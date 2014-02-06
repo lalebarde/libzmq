@@ -28,8 +28,9 @@ namespace zmq
 //    class socket_base_t;
     class msg_t;
 //    class zmq_pollitem_t;
+    class proxy_t;
 
-    typedef int (*hook_f)(void *proxy_open_chain_, void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
+    typedef int (*hook_f)(proxy_t *self_p, void *frontend, void *backend, void *capture, void* msg_, size_t n_, void *data_);
 
     struct proxy_hook_t
     {

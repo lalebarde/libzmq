@@ -1079,10 +1079,10 @@ int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void *
     return proxy.poll();
 }
 
-void * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void **backends_,
+proxy_t * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void **backends_,
         void *capture_, void **hooks_, void *control_, long time_out_)
 {
-    void * proxy_open_chain = (void*) new zmq::proxy_t(
+    proxy_t * self = (proxy_t *) new zmq::proxy_t(
             (zmq::socket_base_t**) open_endpoints_,
             (zmq::socket_base_t**) frontends_,
             (zmq::socket_base_t**) backends_,
@@ -1092,19 +1092,18 @@ void * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void
             time_out_);
     if (errno == EFAULT)
         return NULL;
-    return proxy_open_chain;
+    return self;
 }
 
-int zmq_proxy_open_chain_set_socket_events_mask (void *proxy_open_chain_, size_t socket_index, int state)
+int zmq_proxy_open_chain_set_socket_events_mask (proxy_t *self_p, size_t socket_index, int state)
 {
-    if (!proxy_open_chain_)
-        return -1;
-    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
-    int rc = proxy_open_chain->set_socket_events_mask(socket_index, state);
+    assert (self_p);
+    zmq::proxy_t* self = (zmq::proxy_t*) self_p;
+    int rc = self->set_socket_events_mask(socket_index, state);
     return rc;
 }
 
-void zmq_proxy_open_chain_destroy (void **self_p)
+void zmq_proxy_open_chain_destroy (proxy_t **self_p)
 {
     assert (self_p);
     if (*self_p) {
@@ -1114,10 +1113,10 @@ void zmq_proxy_open_chain_destroy (void **self_p)
     }
 }
 
-int zmq_proxy_open_chain_poll (void *proxy_open_chain_)
+int zmq_proxy_open_chain_poll (proxy_t *self_p)
 {
-    zmq::proxy_t* proxy_open_chain = (zmq::proxy_t*) proxy_open_chain_;
-    return proxy_open_chain->poll();
+    zmq::proxy_t* self = (zmq::proxy_t*) self_p;
+    return self->poll();
 }
 
 //  The deprecated device functionality

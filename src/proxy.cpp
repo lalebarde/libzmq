@@ -102,7 +102,7 @@ zmq::proxy_t::forward(
 
         // Hook
         if (do_hook_) {
-            rc = (*do_hook_)((void*) this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
+            rc = (*do_hook_)(this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
             if (unlikely (rc < 0))
                 return -1;
         }
