@@ -62,7 +62,7 @@ namespace zmq
     private:
         int capture_msg(zmq::msg_t& msg_, int more_);
         int forward(
-//                class proxy_t *self_,
+//                class zmq_proxy_t *self_,
                 class zmq::socket_base_t *from_,
                 class zmq::socket_base_t *to_,
                 zmq::hook_f do_hook_,

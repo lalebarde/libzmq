@@ -145,7 +145,7 @@ do_some_stuff (void* config)
     }
 
     char content [CONTENT_SIZE_MAX];
-    proxy_t *proxy_open_chain = NULL;
+    zmq_proxy_t *proxy_open_chain = NULL;
     if (index == 4 || index == 5)
         proxy_open_chain = zmq_proxy_open_chain_new (NULL, frontends, backends, NULL, NULL, NULL, 10);
     else if (index == 6)

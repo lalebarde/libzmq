@@ -403,14 +403,14 @@ ZMQ_EXPORT int zmq_proxy_steerable (void *frontend, void *backend, void *capture
 ZMQ_EXPORT int zmq_proxy_hook (void *frontend, void *backend, void *capture, void *hook, void *control);
 ZMQ_EXPORT int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_);
 
-typedef struct _proxy_t proxy_t;
-ZMQ_EXPORT proxy_t * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void **backends_,
+typedef struct _zmq_proxy_t zmq_proxy_t;
+ZMQ_EXPORT zmq_proxy_t * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void **backends_,
         void *capture_, void **hooks_, void *control_, long time_out_);
-ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (proxy_t *self_p, size_t socket_index, int state);
-ZMQ_EXPORT int zmq_proxy_open_chain_poll (proxy_t *self_p);
-ZMQ_EXPORT void zmq_proxy_open_chain_destroy (proxy_t **self_p);
+ZMQ_EXPORT int zmq_proxy_open_chain_set_socket_events_mask (zmq_proxy_t *self_p, size_t socket_index, int state);
+ZMQ_EXPORT int zmq_proxy_open_chain_poll (zmq_proxy_t *self_p);
+ZMQ_EXPORT void zmq_proxy_open_chain_destroy (zmq_proxy_t **self_p);
 
-typedef int (*zmq_hook_f)(proxy_t *self_p, void *frontend, void *backend, void *capture, zmq_msg_t* msg_, size_t n_, void *data_);
+typedef int (*zmq_hook_f)(zmq_proxy_t *self_p, void *frontend, void *backend, void *capture, zmq_msg_t* msg_, size_t n_, void *data_);
 typedef struct zmq_proxy_hook_t {
     void *data;
     zmq_hook_f front2back_hook;
