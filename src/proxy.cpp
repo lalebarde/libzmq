@@ -75,7 +75,6 @@ zmq::proxy_t::capture_msg(zmq::msg_t& msg_, int more_)
 
 int
 zmq::proxy_t::forward(
-//        class proxy_t *self_,
         class zmq::socket_base_t *from_,
         class zmq::socket_base_t *to_,
         zmq::hook_f do_hook_,
@@ -102,7 +101,7 @@ zmq::proxy_t::forward(
 
         // Hook
         if (do_hook_) {
-            rc = (*do_hook_)((void*) this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
+            rc = (*do_hook_)(this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
             if (unlikely (rc < 0))
                 return -1;
             if (!msg.check()) // the message was consummed (closed) by the hook. Nothing to send
@@ -130,7 +129,6 @@ zmq::proxy_t::proxy_t (
             open_endpoint(open_endpoint_), frontend(frontend_), backend(backend_),
             capture(capture_), control(control_), hook(hook_), time_out(time_out_)
 {
-    //printf("sizeof (zmq::proxy_t) = %du\n", sizeof (zmq::proxy_t)); // usefull for devs
     moresz = sizeof (int);
 
     // some cases which are mis-uses and we don't want to deal with them
