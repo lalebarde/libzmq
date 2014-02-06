@@ -1079,10 +1079,10 @@ int zmq_proxy_chain (void **frontends_, void **backends_, void *capture_, void *
     return proxy.poll();
 }
 
-int zmq_proxy_open_chain_init (void **proxy_open_chain_, void **open_endpoints_,
-        void **frontends_, void **backends_, void *capture_, void **hooks_, void *control_, long time_out_)
+void * zmq_proxy_open_chain_new (void **open_endpoints_, void **frontends_, void **backends_,
+        void *capture_, void **hooks_, void *control_, long time_out_)
 {
-    *proxy_open_chain_ = (void*) new zmq::proxy_t(
+    void * proxy_open_chain = (void*) new zmq::proxy_t(
             (zmq::socket_base_t**) open_endpoints_,
             (zmq::socket_base_t**) frontends_,
             (zmq::socket_base_t**) backends_,
@@ -1091,8 +1091,8 @@ int zmq_proxy_open_chain_init (void **proxy_open_chain_, void **open_endpoints_,
             (zmq::proxy_hook_t**)  hooks_,
             time_out_);
     if (errno == EFAULT)
-        return -1;
-    return 0;
+        return NULL;
+    return proxy_open_chain;
 }
 
 int zmq_proxy_open_chain_set_socket_events_mask (void *proxy_open_chain_, size_t socket_index, int state)
@@ -1104,12 +1104,14 @@ int zmq_proxy_open_chain_set_socket_events_mask (void *proxy_open_chain_, size_t
     return rc;
 }
 
-int zmq_proxy_open_chain_close (void **proxy_open_chain_)
+void zmq_proxy_open_chain_destroy (void **self_p)
 {
-    zmq::proxy_t** proxy_open_chain = (zmq::proxy_t**) proxy_open_chain_;
-    delete *proxy_open_chain;
-    *proxy_open_chain = NULL;
-    return 0;
+    assert (self_p);
+    if (*self_p) {
+        zmq::proxy_t* self = (zmq::proxy_t*) *self_p;
+        delete self;
+        *self_p = NULL;
+    }
 }
 
 int zmq_proxy_open_chain_poll (void *proxy_open_chain_)

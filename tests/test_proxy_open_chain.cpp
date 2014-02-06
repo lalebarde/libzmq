@@ -31,8 +31,8 @@
 #define ID_SIZE 10
 #define ID_SIZE_MAX 32
 #define QT_REQUESTS 3
-#define QT_THREADS 10
-#define is_verbose 0
+#define QT_THREADS 1 // 10
+#define is_verbose 1
 
 typedef struct config_t {
     void *ctx;
@@ -145,14 +145,13 @@ do_some_stuff (void* config)
     }
 
     char content [CONTENT_SIZE_MAX];
-    void *proxy_open_chain;
+    void *proxy_open_chain = NULL;
     if (index == 4 || index == 5)
-        rc = zmq_proxy_open_chain_init (&proxy_open_chain, NULL, frontends, backends, NULL, NULL, NULL, 10);
+        proxy_open_chain = zmq_proxy_open_chain_new (NULL, frontends, backends, NULL, NULL, NULL, 10);
     else if (index == 6)
-        rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
+        proxy_open_chain = zmq_proxy_open_chain_new (open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
     else
-        rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
-    assert (rc == 0);
+        proxy_open_chain = zmq_proxy_open_chain_new (open_endpoints, frontends, backends, NULL, NULL, NULL, 10);
     if (!index) { // sleep thread n° 0
         rc = zmq_proxy_open_chain_set_socket_events_mask (proxy_open_chain, client_socket_pos, 0); // makes client sleep
         assert (rc == 0);
@@ -169,13 +168,13 @@ do_some_stuff (void* config)
                 assert (rc == 0);
             }
 //            if (index == 1) { // change topology in thread n° 1, round n° 1
-//                rc = zmq_proxy_open_chain_close (&proxy_open_chain);
+//                rc = zmq_proxy_open_chain_destroy (&proxy_open_chain);
 //                assert (rc == 0);
 //                rc = zmq_disconnect (worker, backend_addr);
 //                assert (rc == 0);
 //                rc = zmq_connect (worker, client_addr);
 //                assert (rc == 0);
-//                rc = zmq_proxy_open_chain_init (&proxy_open_chain, open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
+//                rc = zmq_proxy_open_chain_new (&proxy_open_chain, open_endpoints, NULL, NULL, NULL, NULL, NULL, 10);
 //                assert (rc == 0);
 //            }
         }
@@ -232,8 +231,7 @@ do_some_stuff (void* config)
         }
     }
 
-    rc = zmq_proxy_open_chain_close (&proxy_open_chain);
-    assert (rc == 0);
+    zmq_proxy_open_chain_destroy (&proxy_open_chain);
     rc = zmq_close (client);
     assert (rc == 0);
     rc = zmq_close (frontend);
