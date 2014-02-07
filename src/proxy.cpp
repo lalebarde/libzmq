@@ -104,11 +104,14 @@ zmq::proxy_t::forward(
             rc = (*do_hook_)(this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
             if (unlikely (rc < 0))
                 return -1;
+            if (!msg.check()) // the message was consummed (closed) by the hook. Nothing to send
+                return 0;
         }
 
         rc = to_->send (&msg, more? ZMQ_SNDMORE: 0);
         if (unlikely (rc < 0))
             return -1;
+
         if (more == 0)
             break;
     }
