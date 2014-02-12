@@ -52,7 +52,7 @@ int
 upper_case(zmq_proxy_t*, void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
 {
     size_t size = zmq_msg_size(msg_);
-    if (!size || n_ == 1) return 0; // skip identity and 0 frames
+    if (!size || n_ == 0) return 0; // skip identity and 0 frames
     char* message = (char*) zmq_msg_data(msg_);
     for (size_t i = 0; i < size; i++)
         if ('a' <= message[i] && message[i] <= 'z')
@@ -66,7 +66,7 @@ int
 lower_case(zmq_proxy_t*, void*, void*, void*, zmq_msg_t* msg_, size_t n_, void *stats_)
 {
     size_t size = zmq_msg_size(msg_);
-    if (!size || n_ == 1) return 0; // skip identity and 0 frames
+    if (!size || n_ == 0) return 0; // skip identity and 0 frames
     char* message = (char*) zmq_msg_data(msg_);
     for (size_t i = 0; i < size; i++)
         if ('A' <= message[i] && message[i] <= 'Z')

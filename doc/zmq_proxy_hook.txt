@@ -30,7 +30,7 @@ it is sent to the backend. The second one, 'back2front_hook' is for the way back
 Both functions receive as an argument in addition to a pointer to the message, the 
 pointer to the data passed in the 'zmq_proxy_hook_t' structure. This data makes it
 possible to manage stateful behaviours in the proxy. They receive also the frame
-number n_ which is 1 for the first frame, n for the nth one, 0 for the last one. This 
+number n_ which is 0 for the first frame, n-1 for the nth one. This 
 enable to manage specifically the identity frame when ROUTER | STREAM sockets are 
 concerned. Moreover, to give the hook full capabilities, the three sockets passed 
 as parameters to the proxy are also provided to the hook functions, enabling to 

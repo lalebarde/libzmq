@@ -85,7 +85,7 @@ zmq::proxy_t::forward(
     if (unlikely (rc < 0))
         return -1;
     int more;
-    for (size_t n = 1;; n++) {
+    for (size_t n = 0;; n++) {
         int rc = from_->recv (&msg, 0);
         if (unlikely (rc < 0))
             return -1;
@@ -101,7 +101,7 @@ zmq::proxy_t::forward(
 
         // Hook
         if (do_hook_) {
-            rc = (*do_hook_)(this, from_, to_, capture, &msg, more ? n : 0, data_); // first message: n == 1, mth message: n == m, last message: n == 0
+            rc = (*do_hook_)(this, from_, to_, capture, &msg, n, data_); // first message: n == 0, mth message: n == m-1
             if (unlikely (rc < 0))
                 return -1;
             if (!msg.check()) // the message was consummed (closed) by the hook. Nothing to send
