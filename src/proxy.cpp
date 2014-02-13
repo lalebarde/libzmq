@@ -106,7 +106,7 @@ zmq::proxy_t::forward(
                 return -1;
         }
 
-        if (!do_hook_ || (do_hook_ && msg.check())) { // if the message was consummed (closed) by the hook. Nothing to send
+        if (rc == KEEP_MSG) { // if the message was marked DROP_MSG by the hook. nothing to send
             rc = to_->send (&msg, more? ZMQ_SNDMORE: 0);
             if (unlikely (rc < 0))
                 return -1;
